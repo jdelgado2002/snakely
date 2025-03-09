@@ -165,7 +165,7 @@ export default function WormGame() {
     }
 
     // Load audio files with error handling
-    bgMusicRef.current = loadAudio("/bg-music.mp3", 0.5)
+    bgMusicRef.current = loadAudio("/bg-music.wav", 0.5)
     if (bgMusicRef.current) bgMusicRef.current.loop = true
 
     consumeSoundRef.current = loadAudio("/consume.wav", 0.7)
