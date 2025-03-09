@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import type { GameState, Worm, Segment, ScatteredSegment, Camera } from "@/lib/game-types"
 import { generateGrassBackground } from "@/lib/background-generator"
@@ -104,7 +104,7 @@ const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
 const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
 const DIFFICULTY_SPEED_INCREASE = 0.1 // Speed increase per difficulty level
 
-export default function WormGame() {
+function WormGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: BASE_CANVAS_WIDTH, height: BASE_CANVAS_HEIGHT })
@@ -148,6 +148,8 @@ export default function WormGame() {
   // Update GameState type to include difficulty tracking
   const [difficultyLevel, setDifficultyLevel] = useState(1)
   const [lastSpawnScore, setLastSpawnScore] = useState(0)
+  const [backgroundLoaded, setBackgroundLoaded] = useState(false)
+  const worldBackgroundRef = useRef<HTMLImageElement | null>(null)
 
   // Initialize audio
   useEffect(() => {
@@ -383,20 +385,22 @@ export default function WormGame() {
     })
   }
 
-  // Handle window resize and set canvas size
+  // Handle window resize and background generation
   useEffect(() => {
-    const handleResize = () => {
-      if (!containerRef.current) return
+    const handleResize = async () => {
+      if (!canvasRef.current || !containerRef.current) return
 
-      const containerWidth = containerRef.current.clientWidth
-      const containerHeight = window.innerHeight * 0.6 // Use 60% of viewport height
-
-      // Calculate aspect ratio to maintain
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      const rect = container.getBoundingClientRect()
+      const containerWidth = rect.width
+      const containerHeight = rect.height
+      const dpr = window.devicePixelRatio || 1
+      
+      // Calculate dimensions maintaining aspect ratio
       const aspectRatio = BASE_CANVAS_WIDTH / BASE_CANVAS_HEIGHT
-
       let width, height
 
-      // Determine dimensions based on container constraints
       if (containerWidth / containerHeight > aspectRatio) {
         // Container is wider than needed
         height = containerHeight
@@ -407,23 +411,38 @@ export default function WormGame() {
         height = width / aspectRatio
       }
 
-      // Update canvas size
-      setCanvasSize({ width, height })
+      // Set canvas display size (css pixels)
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+      
+      // Set canvas internal size (actual pixels)
+      canvas.width = Math.floor(width * dpr)
+      canvas.height = Math.floor(height * dpr)
+      
+      // Update state with internal size
+      setCanvasSize({ width: canvas.width, height: canvas.height })
+      
+      // Scale the context for retina/high DPI displays
+      const ctx = canvas.getContext("2d")
+      if (ctx) {
+        ctx.scale(dpr, dpr)
+        // Set scale factor as ratio of internal to display size
+        scaleFactorRef.current = canvas.width / width
+      }
 
-      // Calculate scale factor for game elements
-      scaleFactorRef.current = width / BASE_CANVAS_WIDTH
-
-      // Load grass texture for visible background
-      const bgImage = new Image()
-      bgImage.src = '/grass.png'
-      bgImage.crossOrigin = 'anonymous'
-      bgImage.onload = () => setBackgroundImage(bgImage)
-
-      // Load grass texture for world background
-      const worldBgImage = new Image()
-      worldBgImage.src = '/grass.png'
-      worldBgImage.crossOrigin = 'anonymous'
-      worldBgImage.onload = () => setWorldBackgroundImage(worldBgImage)
+      try {
+        // Generate new background
+        const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT)
+        worldBackgroundRef.current = worldBgImage
+        setBackgroundLoaded(true)
+      } catch (err) {
+        console.error("Failed to generate background:", err)
+        // Set a fallback background color
+        if (ctx) {
+          ctx.fillStyle = "#2d5a27" // Fallback dark green
+          ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
+        }
+      }
 
       // Set touch controls visibility based on device
       setShowTouchControls(isMobile)
@@ -431,10 +450,7 @@ export default function WormGame() {
 
     handleResize()
     window.addEventListener("resize", handleResize)
-
-    return () => {
-      window.removeEventListener("resize", handleResize)
-    }
+    return () => window.removeEventListener("resize", handleResize)
   }, [isMobile])
 
   // Set up keyboard controls
@@ -1019,7 +1035,7 @@ export default function WormGame() {
   }
 
   // Render game
-  const renderGame = () => {
+  const renderGame = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -1027,25 +1043,20 @@ export default function WormGame() {
     if (!ctx) return
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height)
+    ctx.fillStyle = "#1a1a1a"
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
 
-    // Draw world background with camera offset
-    if (worldBackgroundImage) {
-      ctx.drawImage(
-        worldBackgroundImage,
-        gameState.camera.x,
-        gameState.camera.y,
-        canvasSize.width,
-        canvasSize.height,
-        0,
-        0,
-        canvasSize.width,
-        canvasSize.height,
-      )
-    } else {
-      // Fallback background
-      ctx.fillStyle = "#7CFC00"
-      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
+    // Draw background
+    if (backgroundLoaded && worldBackgroundRef.current) {
+      // Apply camera transform for background
+      ctx.save()
+      ctx.translate(-gameState.camera.x, -gameState.camera.y)
+      
+      // Draw the background image
+      ctx.drawImage(worldBackgroundRef.current, 0, 0)
+      
+      // Restore transform
+      ctx.restore()
     }
 
     // Draw world boundaries
@@ -1504,7 +1515,7 @@ export default function WormGame() {
         canvasSize.height / 2 + 120 * scaleFactorRef.current,
       )
     }
-  }
+  }, [gameState, canvasSize.width, canvasSize.height, backgroundLoaded])
 
   // Helper function to check if an object is in the viewport
   const isInViewport = (x: number, y: number, radius: number): boolean => {
@@ -1545,10 +1556,10 @@ export default function WormGame() {
 
     R = R < 255 ? R : 255
     G = G < 255 ? G : 255
-    B = B < 255 ? B : 255
+    B = G < 255 ? G : 255
 
     R = R > 0 ? R : 0
-    G = G > 0 ? G : 0
+    G = R > 0 ? G : 0
     B = G > 0 ? G : 0
 
     const RR = R.toString(16).padStart(2, "0")
@@ -1567,7 +1578,7 @@ export default function WormGame() {
   }
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-cenfull">
       <div ref={containerRef} className="w-full max-w-4xl relative overflow-hidden">
         <canvas
           ref={canvasRef}
@@ -1648,3 +1659,5 @@ export default function WormGame() {
     </div>
   )
 }
+
+export default WormGame
