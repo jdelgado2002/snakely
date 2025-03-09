@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react"
 
-export default function GameControls({ localPlayerId }) {
+export default function GameControls() {
   return (
     <div className="mt-4 grid grid-cols-2 gap-4 w-full max-w-md">
       <div className="flex flex-col items-center">
@@ -30,7 +30,7 @@ export default function GameControls({ localPlayerId }) {
       <div className="flex flex-col items-center">
         <h3 className="font-semibold mb-2">Actions</h3>
         <Button className="w-full mb-2 bg-pink-500 hover:bg-pink-600">Throw Cake (Space)</Button>
-        <p className="text-sm text-muted-foreground">Press Space to throw cake in the direction you're facing</p>
+        <p className="text-sm text-muted-foreground">Press Space to throw cake in the direction you&apos;re facing</p>
       </div>
     </div>
   )
