@@ -315,10 +315,10 @@ function WormGame() {
 
     worms.push(playerWorm)
 
-    // Initialize camera to center on player
+    // Initialize camera to center on player in CSS pixels
     const camera: Camera = {
-      x: playerWorm.head.x - canvasSize.width / 2,
-      y: playerWorm.head.y - canvasSize.height / 2,
+      x: (WORLD_WIDTH / 2) - (canvasSize.width / 2),
+      y: (WORLD_HEIGHT / 2) - (canvasSize.height / 2)
     }
 
     // Create CPU worms
@@ -393,23 +393,25 @@ function WormGame() {
       const canvas = canvasRef.current
       const container = containerRef.current
       const rect = container.getBoundingClientRect()
-      const containerWidth = rect.width
-      const containerHeight = rect.height
-      const dpr = window.devicePixelRatio || 1
       
+      // Get window dimensions for better mobile handling
+      const windowHeight = window.innerHeight
+      const maxHeight = Math.min(windowHeight * 0.7, BASE_CANVAS_HEIGHT) // Limit to 70% of window height
+
       // Calculate dimensions maintaining aspect ratio
       const aspectRatio = BASE_CANVAS_WIDTH / BASE_CANVAS_HEIGHT
-      let width, height
+      let width = rect.width
+      let height = width / aspectRatio
 
-      if (containerWidth / containerHeight > aspectRatio) {
-        // Container is wider than needed
-        height = containerHeight
+      // If height exceeds maxHeight, recalculate width to maintain aspect ratio
+      if (height > maxHeight) {
+        height = maxHeight
         width = height * aspectRatio
-      } else {
-        // Container is taller than needed
-        width = containerWidth
-        height = width / aspectRatio
       }
+
+      // Calculate device pixel ratio and size ratio
+      const dpr = window.devicePixelRatio || 1
+      const sizeRatio = width / BASE_CANVAS_WIDTH // Use display width for size calculations
 
       // Set canvas display size (css pixels)
       canvas.style.width = `${width}px`
@@ -419,16 +421,32 @@ function WormGame() {
       canvas.width = Math.floor(width * dpr)
       canvas.height = Math.floor(height * dpr)
       
-      // Update state with internal size
-      setCanvasSize({ width: canvas.width, height: canvas.height })
+      // Store the canvas size for rendering
+      setCanvasSize({ width: canvas.width / dpr, height: canvas.height / dpr }) // Divide by dpr to get CSS pixels
       
-      // Scale the context for retina/high DPI displays
+      // Initialize context scale
       const ctx = canvas.getContext("2d")
       if (ctx) {
         ctx.scale(dpr, dpr)
-        // Set scale factor as ratio of internal to display size
-        scaleFactorRef.current = canvas.width / width
+        scaleFactorRef.current = sizeRatio // Update scale factor based on size ratio
       }
+
+      // Update game state camera if it exists
+      setGameState(prevState => {
+        if (!prevState.isRunning) return prevState
+        
+        const playerWorm = prevState.worms.find(w => w.isPlayer)
+        if (playerWorm) {
+          return {
+            ...prevState,
+            camera: {
+              x: playerWorm.head.x - (canvas.width / dpr) / 2,
+              y: playerWorm.head.y - (canvas.height / dpr) / 2
+            }
+          }
+        }
+        return prevState
+      })
 
       try {
         // Generate new background
@@ -1042,7 +1060,7 @@ function WormGame() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Clear canvas
+    // Clear canvas using CSS pixel dimensions
     ctx.fillStyle = "#1a1a1a"
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
 
@@ -1134,7 +1152,7 @@ function WormGame() {
 
     // Apply camera transform for main rendering
     ctx.save()
-    ctx.translate(-gameState.camera.x, -gameState.camera.y)
+    ctx.translate(-Math.floor(gameState.camera.x), -Math.floor(gameState.camera.y))
 
     // Draw scattered segments
     gameState.scatteredSegments.forEach((segment) => {
@@ -1555,7 +1573,7 @@ function WormGame() {
     B = Math.floor((B * (100 + percent)) / 100)
 
     R = R < 255 ? R : 255
-    G = G < 255 ? G : 255
+    G = R < 255 ? G : 255
     B = G < 255 ? G : 255
 
     R = R > 0 ? R : 0
@@ -1578,13 +1596,13 @@ function WormGame() {
   }
 
   return (
-    <div className="flex flex-col items-cenfull">
-      <div ref={containerRef} className="w-full max-w-4xl relative overflow-hidden">
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
+      <div ref={containerRef} className="w-full relative overflow-hidden">
         <canvas
           ref={canvasRef}
           width={canvasSize.width}
           height={canvasSize.height}
-          className="border-4 border-green-700 rounded-lg shadow-lg bg-green-500 touch-none"
+          className="w-full h-auto border-4 border-green-700 rounded-lg shadow-lg bg-green-500 touch-none"
         />
 
         {!gameState.isRunning && (
