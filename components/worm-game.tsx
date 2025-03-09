@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import type { GameState, Worm, Segment, ScatteredSegment, Camera } from "@/lib/game-types"
 import { generateGrassBackground } from "@/lib/background-generator"
 import { useMobile } from "@/hooks/use-mobile"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { Volume2, VolumeX } from "lucide-react"
 
 // Game constants
