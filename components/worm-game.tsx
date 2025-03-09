@@ -98,6 +98,12 @@ const ABSORPTION_DISTANCE = 20
 const MAX_CPU_WORMS = 50
 const CAMERA_EDGE_BUFFER = 150
 
+// Add new constants for dynamic spawning
+const POINTS_TO_SPAWN = 5 // Spawn new CPU every 5 points
+const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
+const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
+const DIFFICULTY_SPEED_INCREASE = 0.1 // Speed increase per difficulty level
+
 export default function WormGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -138,6 +144,10 @@ export default function WormGame() {
       timestamp: number
     }[]
   >([])
+
+  // Update GameState type to include difficulty tracking
+  const [difficultyLevel, setDifficultyLevel] = useState(1)
+  const [lastSpawnScore, setLastSpawnScore] = useState(0)
 
   // Initialize audio
   useEffect(() => {
@@ -248,6 +258,9 @@ export default function WormGame() {
 
   // Initialize game
   const initializeGame = () => {
+    setDifficultyLevel(1)
+    setLastSpawnScore(0)
+
     // Start background music
     if (bgMusicRef.current && !isMuted) {
       try {
@@ -400,13 +413,17 @@ export default function WormGame() {
       // Calculate scale factor for game elements
       scaleFactorRef.current = width / BASE_CANVAS_WIDTH
 
-      // Generate visible background
-      const bgImage = generateGrassBackground(width, height)
-      setBackgroundImage(bgImage)
+      // Load grass texture for visible background
+      const bgImage = new Image()
+      bgImage.src = '/grass.png'
+      bgImage.crossOrigin = 'anonymous'
+      bgImage.onload = () => setBackgroundImage(bgImage)
 
-      // Generate world background (larger)
-      const worldBgImage = generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT)
-      setWorldBackgroundImage(worldBgImage)
+      // Load grass texture for world background
+      const worldBgImage = new Image()
+      worldBgImage.src = '/grass.png'
+      worldBgImage.crossOrigin = 'anonymous'
+      worldBgImage.onload = () => setWorldBackgroundImage(worldBgImage)
 
       // Set touch controls visibility based on device
       setShowTouchControls(isMobile)
@@ -547,6 +564,84 @@ export default function WormGame() {
     return () => clearInterval(effectInterval)
   }, [gameState.isRunning, consumptionEffects.length])
 
+  // Add function to spawn a new CPU worm with scaled difficulty
+  const spawnNewCPUWorm = (gameState: GameState) => {
+    // Calculate a safe spawn position away from other worms
+    const findSafePosition = (): { x: number; y: number } => {
+      let attempts = 0
+      const maxAttempts = 50
+      const safeDistance = 200 * scaleFactorRef.current
+
+      while (attempts < maxAttempts) {
+        const x = Math.random() * (WORLD_WIDTH - 200) + 100
+        const y = Math.random() * (WORLD_HEIGHT - 200) + 100
+        let isSafe = true
+
+        // Check distance from all existing worms
+        for (const worm of gameState.worms) {
+          if (!worm.isAlive) continue
+          const dx = worm.head.x - x
+          const dy = worm.head.y - y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          if (distance < safeDistance) {
+            isSafe = false
+            break
+          }
+        }
+
+        if (isSafe) {
+          return { x, y }
+        }
+        attempts++
+      }
+
+      // Fallback to random position if no safe spot found
+      return {
+        x: Math.random() * (WORLD_WIDTH - 200) + 100,
+        y: Math.random() * (WORLD_HEIGHT - 200) + 100,
+      }
+    }
+
+    const safePos = findSafePosition()
+    const cpuIndex = gameState.worms.length
+
+    // Scale difficulty based on current level
+    const speedMultiplier = BASE_CPU_SPEED + DIFFICULTY_SPEED_INCREASE * (difficultyLevel - 1)
+    const sizeFactor = Math.max(0.7, Math.min(1.3, 1.0 - difficultyLevel * 0.05)) // Smaller = faster
+    const numSegments = Math.floor(MIN_CPU_SEGMENTS + (difficultyLevel * 2))
+
+    const newCPUWorm: Worm = {
+      id: `worm-cpu-dynamic-${cpuIndex}`,
+      isPlayer: false,
+      isAlive: true,
+      color: PLAYER_COLORS[cpuIndex % PLAYER_COLORS.length],
+      name: `CPU ${cpuIndex}`,
+      head: {
+        x: safePos.x,
+        y: safePos.y,
+        radius: HEAD_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+      },
+      angle: Math.random() * Math.PI * 2,
+      segments: [],
+      score: numSegments,
+      controls: { left: "", right: "" },
+      sizeFactor: sizeFactor,
+      speedMultiplier: speedMultiplier, // Add this to your Worm type
+    }
+
+    // Add segments
+    for (let j = 0; j < numSegments; j++) {
+      const segmentAngle = newCPUWorm.angle + Math.PI
+      newCPUWorm.segments.push({
+        x: newCPUWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
+        y: newCPUWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
+        radius: SEGMENT_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+      })
+    }
+
+    return newCPUWorm
+  }
+
   // Update game state
   const updateGame = (deltaTime: number) => {
     setGameState((prevState) => {
@@ -560,6 +655,7 @@ export default function WormGame() {
       // Check if game is over (only one worm left)
       if (aliveWorms.length === 1) {
         const winner = aliveWorms[0]
+
 
         // Show win/lose message
         if (winner.isPlayer) {
@@ -575,7 +671,6 @@ export default function WormGame() {
             variant: "destructive",
           })
         }
-
         return {
           ...newState,
           isGameOver: true,
@@ -657,8 +752,14 @@ export default function WormGame() {
 
         // Move head
         const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1 // Smaller worms move faster
-        worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
-        worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
+        if (!worm.isPlayer) {
+          const speedMultiplier = worm.speedMultiplier || BASE_CPU_SPEED
+          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
+          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
+        } else {
+          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
+          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
+        }
 
         // World boundary checking
         if (worm.head.x < worm.head.radius) {
@@ -827,6 +928,27 @@ export default function WormGame() {
                 description: `Size increased to ${worm.score}`,
                 variant: "default",
               })
+
+              // Check if player has gained enough points for new CPU spawn
+              const pointsSinceLastSpawn = worm.score - lastSpawnScore
+              if (pointsSinceLastSpawn >= POINTS_TO_SPAWN) {
+                setLastSpawnScore(worm.score)
+                setDifficultyLevel((prev) => prev + 1)
+
+                // Only spawn if below max limit
+                const currentCPUs = newState.worms.filter((w) => !w.isPlayer).length
+                if (currentCPUs < MAX_DYNAMIC_CPU_WORMS) {
+                  const newCPU = spawnNewCPUWorm(newState)
+                  newState.worms.push(newCPU)
+
+                  // Show notification
+                  toast({
+                    title: "New Challenger!",
+                    description: `A level ${difficultyLevel} CPU worm has appeared!`,
+                    variant: "default",
+                  })
+                }
+              }
             }
 
             // Add new segment to worm
@@ -1427,7 +1549,7 @@ export default function WormGame() {
 
     R = R > 0 ? R : 0
     G = G > 0 ? G : 0
-    B = B > 0 ? B : 0
+    B = G > 0 ? G : 0
 
     const RR = R.toString(16).padStart(2, "0")
     const GG = G.toString(16).padStart(2, "0")
@@ -1526,4 +1648,3 @@ export default function WormGame() {
     </div>
   )
 }
-

@@ -25,6 +25,7 @@ export interface Worm {
     right: string
   }
   sizeFactor?: number
+  speedMultiplier?: number; // Add this line
 }
 
 export interface Camera {

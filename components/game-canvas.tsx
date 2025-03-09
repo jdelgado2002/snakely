@@ -22,7 +22,7 @@ export default function GameCanvas({
   const canvasRef = useRef(null)
   const [cakes, setCakes] = useState([])
   const [iceCreams, setIceCreams] = useState([])
-  const [backgroundImage, setBackgroundImage] = useState(null)
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
   const [playerSprites, setPlayerSprites] = useState({})
   const [cakeSprite, setCakeSprite] = useState(null)
   const [iceCreamSprite, setIceCreamSprite] = useState(null)
@@ -36,7 +36,7 @@ export default function GameCanvas({
     // In a real game, we would load actual sprite images
     // For now, we'll create placeholder images
     const bg = new Image()
-    bg.src = "/placeholder.svg?height=500&width=800"
+    bg.src = "/grass.png?height=500&width=800"
     bg.onload = () => setBackgroundImage(bg)
 
     // Create colored player sprites
