@@ -17,11 +17,12 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement
 }
 
-const actionTypes = {
+export const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
   DISMISS_TOAST: "DISMISS_TOAST",
   REMOVE_TOAST: "REMOVE_TOAST",
+  RESTART_GAME: "RESTART_GAME",
 } as const
 
 let count = 0
@@ -49,6 +50,9 @@ type Action =
   | {
       type: ActionType["REMOVE_TOAST"]
       toastId?: ToasterToast["id"]
+    }
+  | {
+      type: ActionType["RESTART_GAME"]
     }
 
 interface State {
@@ -125,6 +129,11 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         toasts: state.toasts.filter((t) => t.id !== action.toastId),
       }
+    case "RESTART_GAME":
+      return {
+        ...state,
+        toasts: [],
+      }
   }
 }
 
@@ -187,6 +196,7 @@ function useToast() {
     ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    restart: () => dispatch({ type: "RESTART_GAME" }),
   }
 }
 

@@ -168,7 +168,7 @@ export default function WormGame() {
     bgMusicRef.current = loadAudio("/bg-music.mp3", 0.5)
     if (bgMusicRef.current) bgMusicRef.current.loop = true
 
-    consumeSoundRef.current = loadAudio("/consume.mp3", 0.7)
+    consumeSoundRef.current = loadAudio("/consume.wav", 0.7)
     explosionSoundRef.current = loadAudio("/explosion.mp3", 0.8)
 
     return () => {
