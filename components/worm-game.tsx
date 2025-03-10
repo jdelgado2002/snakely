@@ -562,10 +562,9 @@ function WormGame() {
         lastUpdateTimeRef.current = timestamp
       }
 
-      const deltaTime = timestamp - lastUpdateTimeRef.current
       lastUpdateTimeRef.current = timestamp
 
-      updateGame(deltaTime)
+      updateGame()
       renderGame()
 
       animationFrameRef.current = requestAnimationFrame(gameLoop)
@@ -576,7 +575,7 @@ function WormGame() {
     return () => {
       cancelAnimationFrame(animationFrameRef.current)
     }
-  }, )
+  }, [gameState.isRunning, gameState.worms, gameState.scatteredSegments])
 
   // Update consumption effects
   useEffect(() => {
@@ -1052,6 +1051,10 @@ function WormGame() {
 
     // Clear canvas using CSS pixel dimensions
     ctx.fillStyle = "#1a1a1a"
+    if (!canvas) return
+
+    // Clear canvas using CSS pixel dimensions
+    ctx.fillStyle = "#1a1a1a"
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
 
     // Draw background
@@ -1523,7 +1526,7 @@ function WormGame() {
         canvasSize.height / 2 + 120 * scaleFactorRef.current,
       )
     }
-  }, )
+  }, [canvasSize, gameState, showTouchControls, touchFeedback, backgroundLoaded, consumptionEffects])
 
   // Helper function to check if an object is in the viewport
   const isInViewport = (x: number, y: number, radius: number): boolean => {
