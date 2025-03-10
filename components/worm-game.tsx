@@ -576,7 +576,7 @@ function WormGame() {
     return () => {
       cancelAnimationFrame(animationFrameRef.current)
     }
-  }, [gameState.isRunning])
+  }, )
 
   // Update consumption effects
   useEffect(() => {
