@@ -11,6 +11,22 @@ const PLAYER_SPEED = 4
 const CAKE_SPEED = 7
 const SLIP_FACTOR = 2.5
 
+interface Player {
+  id: string
+  x: number
+  y: number
+  // Add other player properties as needed
+}
+
+interface GameCanvasProps {
+  players: Player[]
+  localPlayerId: string
+  updatePlayerPosition: (id: string, x: number, y: number) => void
+  handlePlayerHit: (id: string) => void
+  makePlayerSlip: (id: string) => void
+  incrementScore: (id: string) => void
+}
+
 export default function GameCanvas({
   players,
   localPlayerId,
@@ -18,16 +34,16 @@ export default function GameCanvas({
   handlePlayerHit,
   makePlayerSlip,
   incrementScore,
-}) {
-  const canvasRef = useRef(null)
-  const [cakes, setCakes] = useState([])
-  const [iceCreams, setIceCreams] = useState([])
+}: GameCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [cakes, setCakes] = useState<{ x: number; y: number }[]>([])
+  const [iceCreams, setIceCreams] = useState<{ x: number; y: number }[]>([])
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
-  const [playerSprites, setPlayerSprites] = useState({})
-  const [cakeSprite, setCakeSprite] = useState(null)
-  const [iceCreamSprite, setIceCreamSprite] = useState(null)
-  const collisionsRef = useRef([]) // Initialize collisionsRef here
-  const [gameRunning, setGameRunning] = useState(true)
+  const [playerSprites, setPlayerSprites] = useState<{ [key: string]: HTMLImageElement }>({})
+  const [cakeSprite, setCakeSprite] = useState<HTMLImageElement | null>(null)
+  const [iceCreamSprite, setIceCreamSprite] = useState<HTMLImageElement | null>(null)
+  const collisionsRef = useRef<{ x: number; y: number }[]>([]) // Initialize collisionsRef here
+  const [gameRunning] = useState(true)
 
   const { keys } = useKeyboardControls()
 
