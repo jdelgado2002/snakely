@@ -201,3 +201,8 @@ function useToast() {
 }
 
 export { useToast, toast }
+
+interface ToastProps {
+  variant?: 'default' | 'destructive' | 'success'
+  duration?: number
+}
