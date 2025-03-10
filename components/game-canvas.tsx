@@ -12,11 +12,11 @@ const CAKE_SPEED = 7
 const SLIP_FACTOR = 2.5
 
 interface Player {
-  color(arg0: number, color: any): unknown
+  color(arg0: number, color: unknown): unknown
   health: number
-  direction: any
-  isSlipping: any
-  name(name: any, x: number, arg2: number): unknown
+  direction: unknown
+  isSlipping: unknown
+  name(name: unknown, x: number, arg2: number): unknown
   id: string
   x: number
   y: number
@@ -43,7 +43,7 @@ export default function GameCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [cakes, setCakes] = useState<{
     velocityX: number
-    velocityY: number x: number; y: number 
+    velocityY: number; x: number; y: number 
 }[]>([])
   const [iceCreams, setIceCreams] = useState<{ x: number; y: number }[]>([])
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
@@ -51,8 +51,8 @@ export default function GameCanvas({
   const [cakeSprite, setCakeSprite] = useState<HTMLImageElement | null>(null)
   const [iceCreamSprite, setIceCreamSprite] = useState<HTMLImageElement | null>(null)
   const collisionsRef = useRef<{
-    targetId(targetId: any): unknown
-    sourceId(sourceId: any): unknown x: number; y: number 
+    targetId(targetId: unknown): unknown
+    sourceId(sourceId: unknown): unknown; x: number; y: number 
 }[]>([]) // Initialize collisionsRef here
   const [gameRunning] = useState(true)
 
