@@ -86,7 +86,7 @@ export function GameUI({
             <span className="bg-gray-800 px-2 py-1 rounded">→</span> arrow keys to control your worm.
           </p>
         )}
-        <p className="mb-2">If your head hits another worm's body, you lose and they win that round.</p>
+        <p className="mb-2">If your head hits another worm&#39;s body, you lose and they win that round.</p>
         <p className="mb-2">When a worm is eliminated, their segments scatter and can be collected to grow longer.</p>
         <p>The last worm standing wins the game!</p>
       </div>

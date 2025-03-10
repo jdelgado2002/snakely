@@ -95,8 +95,6 @@ const TURN_SPEED = 0.1
 const SEGMENT_SPACING = 15
 const SCATTERED_SEGMENT_SPEED = 3
 const ABSORPTION_DISTANCE = 20
-const MAX_CPU_WORMS = 50
-const CAMERA_EDGE_BUFFER = 150
 
 // Add new constants for dynamic spawning
 const POINTS_TO_SPAWN = 5 // Spawn new CPU every 5 points
@@ -118,8 +116,8 @@ function WormGame() {
     camera: { x: 0, y: 0 },
     worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
   })
-  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
-  const [worldBackgroundImage, setWorldBackgroundImage] = useState<HTMLImageElement | null>(null)
+
+
   const animationFrameRef = useRef<number>(0)
   const lastUpdateTimeRef = useRef<number>(0)
   const keyStatesRef = useRef<{ [key: string]: boolean }>({})
@@ -551,7 +549,7 @@ function WormGame() {
       canvas.removeEventListener("touchmove", handleTouchMove)
       canvas.removeEventListener("touchend", handleTouchEnd)
     }
-  }, [canvasRef.current])
+  },)
 
   // Start game loop
   useEffect(() => {
@@ -677,7 +675,7 @@ function WormGame() {
   }
 
   // Update game state
-  const updateGame = (deltaTime: number) => {
+  const updateGame = () => {
     setGameState((prevState) => {
       // If game is over, don't update
       if (prevState.isGameOver) return prevState
@@ -818,7 +816,7 @@ function WormGame() {
           let prevX = prevHeadX
           let prevY = prevHeadY
 
-          worm.segments.forEach((segment, index) => {
+          worm.segments.forEach((segment) => {
             const tempX = segment.x
             const tempY = segment.y
 
@@ -893,7 +891,7 @@ function WormGame() {
           if (roundWinnerFound || worm1.id === worm2.id) return
 
           // Check if worm1's head collides with worm2's body
-          worm2.segments.forEach((segment, index) => {
+          worm2.segments.forEach((segment) => {
             if (roundWinnerFound) return
 
             const dx = worm1.head.x - segment.x
@@ -1179,7 +1177,7 @@ function WormGame() {
       if (!isWormInViewport(worm)) return
 
       // Draw segments
-      worm.segments.forEach((segment, index) => {
+      worm.segments.forEach((segment) => {
         // Skip rendering if outside visible area
         if (!isInViewport(segment.x, segment.y, segment.radius)) return
 
@@ -1533,7 +1531,7 @@ function WormGame() {
         canvasSize.height / 2 + 120 * scaleFactorRef.current,
       )
     }
-  }, [gameState, canvasSize.width, canvasSize.height, backgroundLoaded])
+  }, )
 
   // Helper function to check if an object is in the viewport
   const isInViewport = (x: number, y: number, radius: number): boolean => {
@@ -1670,7 +1668,7 @@ function WormGame() {
             <span className="bg-gray-800 px-2 py-1 rounded">→</span> arrow keys to control your worm.
           </p>
         )}
-        <p className="mb-2">If your head hits another worm's body, you lose and they win that round.</p>
+        <p className="mb-2">If your head hits another worm&apos;s body, you lose and they win that round.</p>
         <p className="mb-2">When a worm is eliminated, their segments scatter and can be collected to grow longer.</p>
         <p>The last worm standing wins the game!</p>
       </div>
