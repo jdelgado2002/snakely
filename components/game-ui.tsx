@@ -45,7 +45,7 @@ export function GameUI({
             </div>
             <Button
               onClick={onStartClick}
-              className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white text-xl font-bold rounded-lg"
+              className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white text-xlÍ font-bold rounded-lg"
             >
               Start Game
             </Button>
