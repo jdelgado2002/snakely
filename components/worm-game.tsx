@@ -7,6 +7,7 @@ import { generateGrassBackground } from "@/lib/background-generator"
 import { useMobile } from "@/hooks/use-mobile"
 import { useToast } from "@/components/ui/use-toast"
 import { Volume2, VolumeX } from "lucide-react"
+import { useCamera } from "@/hooks/use-camera" // Import the new custom hook
 
 // Game constants
 const BASE_CANVAS_WIDTH = 800
@@ -117,7 +118,6 @@ function WormGame() {
     worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
   })
 
-
   const animationFrameRef = useRef<number>(0)
   const lastUpdateTimeRef = useRef<number>(0)
   const keyStatesRef = useRef<{ [key: string]: boolean }>({})
@@ -143,11 +143,13 @@ function WormGame() {
     }[]
   >([])
 
-  // Update GameState type to include difficulty tracking
   const [difficultyLevel, setDifficultyLevel] = useState(1)
   const [lastSpawnScore, setLastSpawnScore] = useState(0)
   const [backgroundLoaded, setBackgroundLoaded] = useState(false)
   const worldBackgroundRef = useRef<HTMLImageElement | null>(null)
+
+  // Use the custom hook for camera functionality
+  const { updateCamera, renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
 
   // Initialize audio
   useEffect(() => {
@@ -845,17 +847,7 @@ function WormGame() {
       // Update camera to follow player
       const playerWorm = aliveWorms.find((worm) => worm.isPlayer)
       if (playerWorm) {
-        // Calculate target camera position (centered on player)
-        const targetCameraX = playerWorm.head.x - canvasSize.width / 2
-        const targetCameraY = playerWorm.head.y - canvasSize.height / 2
-
-        // Smooth camera movement
-        newState.camera.x += (targetCameraX - newState.camera.x) * 0.1
-        newState.camera.y += (targetCameraY - newState.camera.y) * 0.1
-
-        // Ensure camera stays within world bounds
-        newState.camera.x = Math.max(0, Math.min(newState.camera.x, WORLD_WIDTH - canvasSize.width))
-        newState.camera.y = Math.max(0, Math.min(newState.camera.y, WORLD_HEIGHT - canvasSize.height))
+        updateCamera(playerWorm)
       }
 
       // Move scattered segments
@@ -1150,7 +1142,7 @@ function WormGame() {
 
     // Apply camera transform for main rendering
     ctx.save()
-    ctx.translate(-Math.floor(gameState.camera.x), -Math.floor(gameState.camera.y))
+    renderCamera(ctx)
 
     // Draw scattered segments
     gameState.scatteredSegments.forEach((segment) => {
