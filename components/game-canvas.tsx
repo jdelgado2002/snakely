@@ -12,6 +12,11 @@ const CAKE_SPEED = 7
 const SLIP_FACTOR = 2.5
 
 interface Player {
+  color(arg0: number, color: any): unknown
+  health: number
+  direction: any
+  isSlipping: any
+  name(name: any, x: number, arg2: number): unknown
   id: string
   x: number
   y: number
@@ -36,13 +41,19 @@ export default function GameCanvas({
   incrementScore,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [cakes, setCakes] = useState<{ x: number; y: number }[]>([])
+  const [cakes, setCakes] = useState<{
+    velocityX: number
+    velocityY: number x: number; y: number 
+}[]>([])
   const [iceCreams, setIceCreams] = useState<{ x: number; y: number }[]>([])
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
   const [playerSprites, setPlayerSprites] = useState<{ [key: string]: HTMLImageElement }>({})
   const [cakeSprite, setCakeSprite] = useState<HTMLImageElement | null>(null)
   const [iceCreamSprite, setIceCreamSprite] = useState<HTMLImageElement | null>(null)
-  const collisionsRef = useRef<{ x: number; y: number }[]>([]) // Initialize collisionsRef here
+  const collisionsRef = useRef<{
+    targetId(targetId: any): unknown
+    sourceId(sourceId: any): unknown x: number; y: number 
+}[]>([]) // Initialize collisionsRef here
   const [gameRunning] = useState(true)
 
   const { keys } = useKeyboardControls()
@@ -67,58 +78,60 @@ export default function GameCanvas({
         canvas.height = PLAYER_SIZE
         const ctx = canvas.getContext("2d")
 
-        // Draw player body (3D-like circle with shading)
-        const gradient = ctx.createRadialGradient(
-          PLAYER_SIZE / 2,
-          PLAYER_SIZE / 2,
-          0,
-          PLAYER_SIZE / 2,
-          PLAYER_SIZE / 2,
-          PLAYER_SIZE / 2,
-        )
-        gradient.addColorStop(0, player.color)
-        gradient.addColorStop(0.8, player.color)
-        gradient.addColorStop(1, `${player.color}80`) // Semi-transparent edge for 3D effect
+        if (ctx) {
+          // Draw player body (3D-like circle with shading)
+          const gradient = ctx.createRadialGradient(
+            PLAYER_SIZE / 2,
+            PLAYER_SIZE / 2,
+            0,
+            PLAYER_SIZE / 2,
+            PLAYER_SIZE / 2,
+            PLAYER_SIZE / 2,
+          )
+          gradient.addColorStop(0, player.color)
+          gradient.addColorStop(0.8, player.color)
+          gradient.addColorStop(1, `${player.color}80`) // Semi-transparent edge for 3D effect
 
-        ctx.fillStyle = gradient
-        ctx.beginPath()
-        ctx.arc(PLAYER_SIZE / 2, PLAYER_SIZE / 2, PLAYER_SIZE / 2 - 2, 0, Math.PI * 2)
-        ctx.fill()
+          ctx.fillStyle = gradient
+          ctx.beginPath()
+          ctx.arc(PLAYER_SIZE / 2, PLAYER_SIZE / 2, PLAYER_SIZE / 2 - 2, 0, Math.PI * 2)
+          ctx.fill()
 
-        // Add highlight for 3D effect
-        ctx.fillStyle = "rgba(255, 255, 255, 0.3)"
-        ctx.beginPath()
-        ctx.arc(PLAYER_SIZE / 2 - 5, PLAYER_SIZE / 2 - 5, PLAYER_SIZE / 3, 0, Math.PI / 2)
-        ctx.fill()
+          // Add highlight for 3D effect
+          ctx.fillStyle = "rgba(255, 255, 255, 0.3)"
+          ctx.beginPath()
+          ctx.arc(PLAYER_SIZE / 2 - 5, PLAYER_SIZE / 2 - 5, PLAYER_SIZE / 3, 0, Math.PI / 2)
+          ctx.fill()
 
-        // Draw face based on direction
-        const faceOffset = direction === "left" ? -5 : 5
+          // Draw face based on direction
+          const faceOffset = direction === "left" ? -5 : 5
 
-        // Draw eyes
-        ctx.fillStyle = "white"
-        ctx.beginPath()
-        ctx.arc(PLAYER_SIZE / 2 - faceOffset, PLAYER_SIZE / 2 - 5, 6, 0, Math.PI * 2)
-        ctx.arc(PLAYER_SIZE / 2 + faceOffset, PLAYER_SIZE / 2 - 5, 6, 0, Math.PI * 2)
-        ctx.fill()
+          // Draw eyes
+          ctx.fillStyle = "white"
+          ctx.beginPath()
+          ctx.arc(PLAYER_SIZE / 2 - faceOffset, PLAYER_SIZE / 2 - 5, 6, 0, Math.PI * 2)
+          ctx.arc(PLAYER_SIZE / 2 + faceOffset, PLAYER_SIZE / 2 - 5, 6, 0, Math.PI * 2)
+          ctx.fill()
 
-        ctx.fillStyle = "black"
-        ctx.beginPath()
-        // Adjust eye position based on direction
-        const eyeXOffset = direction === "left" ? -1 : 1
-        ctx.arc(PLAYER_SIZE / 2 - faceOffset + eyeXOffset, PLAYER_SIZE / 2 - 5, 2.5, 0, Math.PI * 2)
-        ctx.arc(PLAYER_SIZE / 2 + faceOffset + eyeXOffset, PLAYER_SIZE / 2 - 5, 2.5, 0, Math.PI * 2)
-        ctx.fill()
+          ctx.fillStyle = "black"
+          ctx.beginPath()
+          // Adjust eye position based on direction
+          const eyeXOffset = direction === "left" ? -1 : 1
+          ctx.arc(PLAYER_SIZE / 2 - faceOffset + eyeXOffset, PLAYER_SIZE / 2 - 5, 2.5, 0, Math.PI * 2)
+          ctx.arc(PLAYER_SIZE / 2 + faceOffset + eyeXOffset, PLAYER_SIZE / 2 - 5, 2.5, 0, Math.PI * 2)
+          ctx.fill()
 
-        // Draw mouth
-        ctx.beginPath()
-        ctx.arc(PLAYER_SIZE / 2, PLAYER_SIZE / 2 + 8, 6, 0, Math.PI)
-        ctx.stroke()
+          // Draw mouth
+          ctx.beginPath()
+          ctx.arc(PLAYER_SIZE / 2, PLAYER_SIZE / 2 + 8, 6, 0, Math.PI)
+          ctx.stroke()
 
-        // Draw chef hat
-        ctx.fillStyle = "white"
-        ctx.beginPath()
-        ctx.ellipse(PLAYER_SIZE / 2, PLAYER_SIZE / 4, PLAYER_SIZE / 3, PLAYER_SIZE / 6, 0, 0, Math.PI * 2)
-        ctx.fill()
+          // Draw chef hat
+          ctx.fillStyle = "white"
+          ctx.beginPath()
+          ctx.ellipse(PLAYER_SIZE / 2, PLAYER_SIZE / 4, PLAYER_SIZE / 3, PLAYER_SIZE / 6, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
 
         const img = new Image()
         img.crossOrigin = "anonymous"
