@@ -179,7 +179,7 @@ function WormGame() {
     if (bgMusicRef.current) bgMusicRef.current.loop = true
 
     consumeSoundRef.current = loadAudio("/consume.wav", 0.7)
-    explosionSoundRef.current = loadAudio("/consume.wav", 0.8)
+    explosionSoundRef.current = loadAudio("/Accept.mp3", 0.8)
 
     return () => {
       if (bgMusicRef.current) {

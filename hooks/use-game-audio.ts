@@ -10,8 +10,8 @@ export const useGameAudio = (isMuted: boolean) => {
     bgMusicRef.current = loadAudio("/bg-music.wav", 0.5)
     if (bgMusicRef.current) bgMusicRef.current.loop = true
 
-    consumeSoundRef.current = loadAudio("/consume.wav", 0.7)
-    explosionSoundRef.current = loadAudio("/consume.wav", 0.8)
+    consumeSoundRef.current = loadAudio("consume.wav", 0.7)
+    explosionSoundRef.current = loadAudio("/Accept.mp3", 0.8)
 
     return () => {
       if (bgMusicRef.current) {
