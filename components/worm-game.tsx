@@ -105,7 +105,6 @@ const ABSORPTION_DISTANCE = 20
 const POINTS_TO_SPAWN = 5 // Spawn new CPU every 5 points
 const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
 const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
-const DIFFICULTY_SPEED_INCREASE = 1.1 // Speed increase per difficulty level
 
 function WormGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -144,7 +143,7 @@ function WormGame() {
   const worldBackgroundRef = useRef<HTMLImageElement | null>(null)
 
   // Use the custom hook for camera functionality
-  const { updateCamera, renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
+  const { renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
 
   const { effects, addEffect } = useConsumptionEffects(gameState.isRunning)
 
@@ -456,7 +455,7 @@ function WormGame() {
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [isMobile])
+  }, [isMobile, updateGameState])
 
   // Set up keyboard controls
   useEffect(() => {
@@ -539,6 +538,41 @@ function WormGame() {
       canvas.removeEventListener("touchend", handleTouchEnd)
     }
   },)
+
+  // Create explosion effect when a worm is eliminated
+  // This function needs to be defined BEFORE updateGame which uses it
+  const createExplosionEffect = (gameState: GameState, worm: Worm) => {
+    // Scatter segments
+    worm.segments.forEach((segment) => {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * SCATTERED_SEGMENT_SPEED
+      gameState.scatteredSegments.push({
+        x: segment.x,
+        y: segment.y,
+        radius: segment.radius,
+        color: worm.color,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed,
+      })
+    })
+
+    // Add explosion particles from the head
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * SCATTERED_SEGMENT_SPEED * 1.5
+      gameState.scatteredSegments.push({
+        x: worm.head.x,
+        y: worm.head.y,
+        radius: Math.random() * 5 * scaleFactorRef.current + 2,
+        color: worm.color,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed,
+      })
+    }
+
+    // Add visual effect directly using the hook
+    addEffect(worm.head.x, worm.head.y, worm.color, worm.head.radius * 3)
+  }
 
   // Move update and render functions outside useEffect
   const updateGame = useCallback(() => {
@@ -649,7 +683,8 @@ function WormGame() {
         const prevHeadY = worm.head.y
 
         // Move head
-        const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1 // Smaller worms move faster
+        //const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1 // Smaller worms move faster
+        const speedFactor = 1
         if (!worm.isPlayer) {
           const speedMultiplier = worm.speedMultiplier || BASE_CPU_SPEED
           worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
@@ -877,41 +912,68 @@ function WormGame() {
 
       return newState
     })
-  }, [updateGameState, canvasSize])
+  }, [
+    updateGameState,
+    canvasSize,
+    addConsumptionEffect,
+    createExplosionEffect,  // Now this reference is valid
+    difficultyLevel,
+    lastSpawnScore,
+    playConsumeSound,
+    playExplosionSound,
+    toast
+  ])
 
-  // Create explosion effect when a worm is eliminated
-  // Update the createExplosionEffect function to use the hook directly
-  const createExplosionEffect = (gameState: GameState, worm: Worm) => {
-    // Scatter segments
-    worm.segments.forEach((segment) => {
-      const angle = Math.random() * Math.PI * 2
-      const speed = Math.random() * SCATTERED_SEGMENT_SPEED
-      gameState.scatteredSegments.push({
-        x: segment.x,
-        y: segment.y,
-        radius: segment.radius,
-        color: worm.color,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed,
-      })
-    })
+  // Helper function to check if an object is in the viewport
+  const isInViewport = (x: number, y: number, radius: number): boolean => {
+    return (
+      x + radius >= gameState.camera.x &&
+      x - radius <= gameState.camera.x + canvasSize.width &&
+      y + radius >= gameState.camera.y &&
+      y - radius <= gameState.camera.y + canvasSize.height
+    )
+  }
 
-    // Add explosion particles from the head
-    for (let i = 0; i < 20; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const speed = Math.random() * SCATTERED_SEGMENT_SPEED * 1.5
-      gameState.scatteredSegments.push({
-        x: worm.head.x,
-        y: worm.head.y,
-        radius: Math.random() * 5 * scaleFactorRef.current + 2,
-        color: worm.color,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed,
-      })
+  // Helper function to check if a worm is in the viewport
+  const isWormInViewport = (worm: Worm): boolean => {
+    // Check if head is in viewport
+    if (isInViewport(worm.head.x, worm.head.y, worm.head.radius)) {
+      return true
     }
 
-    // Add visual effect directly using the hook
-    addEffect(worm.head.x, worm.head.y, worm.color, worm.head.radius * 3)
+    // Check if any segment is in viewport
+    for (const segment of worm.segments) {
+      if (isInViewport(segment.x, segment.y, segment.radius)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // Helper function to shade colors
+  const shadeColor = (color: string, percent: number): string => {
+    let R = Number.parseInt(color.substring(1, 3), 16)
+    let G = Number.parseInt(color.substring(3, 5), 16)
+    let B = Number.parseInt(color.substring(5, 7), 16)
+
+    R = Math.floor((R * (100 + percent)) / 100)
+    G = Math.floor((G * (100 + percent)) / 100)
+    B = Math.floor((B * (100 + percent)) / 100)
+
+    R = R < 255 ? R : 255
+    G = R < 255 ? G : 255
+    B = G < 255 ? G : 255
+
+    R = R > 0 ? R : 0
+    G = R > 0 ? G : 0
+    B = G > 0 ? G : 0
+
+    const RR = R.toString(16).padStart(2, "0")
+    const GG = G.toString(16).padStart(2, "0")
+    const BB = B.toString(16).padStart(2, "0")
+
+    return `#${RR}${GG}${BB}`
   }
 
   // Render game
@@ -1405,60 +1467,11 @@ function WormGame() {
     showTouchControls,
     touchFeedback,
     backgroundLoaded,
-    effects // Add effects to dependencies
+    effects,
+    isInViewport,
+    isWormInViewport,
+    renderCamera
   ])
-
-  // Helper function to check if an object is in the viewport
-  const isInViewport = (x: number, y: number, radius: number): boolean => {
-    return (
-      x + radius >= gameState.camera.x &&
-      x - radius <= gameState.camera.x + canvasSize.width &&
-      y + radius >= gameState.camera.y &&
-      y - radius <= gameState.camera.y + canvasSize.height
-    )
-  }
-
-  // Helper function to check if a worm is in the viewport
-  const isWormInViewport = (worm: Worm): boolean => {
-    // Check if head is in viewport
-    if (isInViewport(worm.head.x, worm.head.y, worm.head.radius)) {
-      return true
-    }
-
-    // Check if any segment is in viewport
-    for (const segment of worm.segments) {
-      if (isInViewport(segment.x, segment.y, segment.radius)) {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  // Helper function to shade colors
-  const shadeColor = (color: string, percent: number): string => {
-    let R = Number.parseInt(color.substring(1, 3), 16)
-    let G = Number.parseInt(color.substring(3, 5), 16)
-    let B = Number.parseInt(color.substring(5, 7), 16)
-
-    R = Math.floor((R * (100 + percent)) / 100)
-    G = Math.floor((G * (100 + percent)) / 100)
-    B = Math.floor((B * (100 + percent)) / 100)
-
-    R = R < 255 ? R : 255
-    G = R < 255 ? G : 255
-    B = G < 255 ? G : 255
-
-    R = R > 0 ? R : 0
-    G = R > 0 ? G : 0
-    B = G > 0 ? G : 0
-
-    const RR = R.toString(16).padStart(2, "0")
-    const GG = G.toString(16).padStart(2, "0")
-    const BB = B.toString(16).padStart(2, "0")
-
-    return `#${RR}${GG}${BB}`
-  }
 
   // Handle start button click
   const handleStartClick = () => {
