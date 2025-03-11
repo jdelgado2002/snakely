@@ -8,7 +8,6 @@ import { useMobile } from "@/hooks/use-mobile"
 import { useToast } from "@/components/ui/use-toast"
 import { Volume2, VolumeX } from "lucide-react"
 import { useCamera } from "@/hooks/use-camera" // Import the new custom hook
-import useRenderGame from "@/hooks/useRenderGame"
 
 // Game constants
 const BASE_CANVAS_WIDTH = 800
@@ -151,20 +150,6 @@ function WormGame() {
 
   // Use the custom hook for camera functionality
   const { updateCamera, renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
-
-  // Use the custom hook for rendering the game
-  useRenderGame(
-    canvasRef,
-    canvasSize,
-    gameState,
-    showTouchControls,
-    touchFeedback,
-    backgroundLoaded,
-    worldBackgroundRef,
-    consumptionEffects,
-    scaleFactorRef,
-    renderCamera
-  )
 
   // Initialize audio
   useEffect(() => {
