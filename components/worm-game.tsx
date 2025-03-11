@@ -136,16 +136,7 @@ function WormGame() {
   const consumeSoundRef = useRef<HTMLAudioElement | null>(null)
   const explosionSoundRef = useRef<HTMLAudioElement | null>(null)
   const [numCPUWorms, setNumCPUWorms] = useState(15)
-  const [consumptionEffects, setConsumptionEffects] = useState<
-    {
-      x: number
-      y: number
-      color: string
-      size: number
-      alpha: number
-      timestamp: number
-    }[]
-  >([])
+
 
   const [difficultyLevel, setDifficultyLevel] = useState(1)
   const [lastSpawnScore, setLastSpawnScore] = useState(0)
@@ -1414,7 +1405,6 @@ function WormGame() {
     showTouchControls,
     touchFeedback,
     backgroundLoaded,
-    consumptionEffects,
     effects // Add effects to dependencies
   ])
 
@@ -1478,13 +1468,13 @@ function WormGame() {
     initializeGame()
   }
 
-// Update the useGameLoop dependencies array to include all necessary values
-useGameLoop(
-  gameState.isRunning,
-  updateGame,
-  renderGame,
-  [gameState.worms, gameState.scatteredSegments, gameState.camera, canvasSize.width, canvasSize.height]
-)
+  // Update the useGameLoop dependencies array to include all necessary values
+  useGameLoop(
+    gameState.isRunning,
+    updateGame,
+    renderGame,
+    [gameState.worms, gameState.scatteredSegments, gameState.camera, canvasSize.width, canvasSize.height]
+  )
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto">

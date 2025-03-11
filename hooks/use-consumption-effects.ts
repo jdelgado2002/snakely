@@ -14,7 +14,7 @@ export function useConsumptionEffects(isGameRunning: boolean) {
 
   useEffect(() => {
     if (!isGameRunning || effects.length === 0) return
-
+  
     const updateEffects = () => {
       setEffects((prev) =>
         prev
@@ -23,36 +23,43 @@ export function useConsumptionEffects(isGameRunning: boolean) {
             alpha: effect.alpha - 0.02,
             size: effect.size * 1.03,
           }))
-          // Remove effects that are too old or fully transparent
+          // More aggressive filtering to ensure effects are removed
           .filter((effect) => (
             effect.alpha > 0 && 
             Date.now() - effect.timestamp < 2000
           ))
       )
     }
-
+  
     const effectInterval = setInterval(updateEffects, 50)
+    
     return () => {
       clearInterval(effectInterval)
-      // Clear effects when game stops
-      if (!isGameRunning) {
-        setEffects([])
-      }
+      // Clear effects when game stops or component unmounts
+      setEffects([])
     }
   }, [isGameRunning, effects.length])
 
   const addEffect = (x: number, y: number, color: string, size: number) => {
-    setEffects((prev) => [
-      ...prev,
-      {
+    // Limit the maximum number of effects to prevent performance issues
+    setEffects((prev) => {
+      const newEffect = {
         x,
         y,
         color,
         size,
         alpha: 1,
         timestamp: Date.now(),
-      },
-    ])
+      }
+      
+      // If we have too many effects, replace the oldest
+      if (prev.length > 30) {
+        const withoutOldest = [...prev.slice(1)]
+        return [...withoutOldest, newEffect]
+      }
+      
+      return [...prev, newEffect]
+    })
   }
 
   return { effects, addEffect }
