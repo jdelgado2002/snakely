@@ -8,6 +8,10 @@ import { useMobile } from "@/hooks/use-mobile"
 import { useToast } from "@/components/ui/use-toast"
 import { Volume2, VolumeX } from "lucide-react"
 import { useCamera } from "@/hooks/use-camera" // Import the new custom hook
+import { useGameLoop } from "@/hooks/use-game-loop"
+import { useGameState } from "@/hooks/use-game-state"
+import { useConsumptionEffects } from '@/hooks/use-consumption-effects'
+import { spawnNewCPUWorm } from '@/lib/game-utils'
 
 // Game constants
 const BASE_CANVAS_WIDTH = 800
@@ -101,13 +105,12 @@ const ABSORPTION_DISTANCE = 20
 const POINTS_TO_SPAWN = 5 // Spawn new CPU every 5 points
 const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
 const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
-const DIFFICULTY_SPEED_INCREASE = 0.1 // Speed increase per difficulty level
 
 function WormGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: BASE_CANVAS_WIDTH, height: BASE_CANVAS_HEIGHT })
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, updateGameState] = useGameState({
     isRunning: false,
     isGameOver: false,
     winner: null,
@@ -132,16 +135,7 @@ function WormGame() {
   const consumeSoundRef = useRef<HTMLAudioElement | null>(null)
   const explosionSoundRef = useRef<HTMLAudioElement | null>(null)
   const [numCPUWorms, setNumCPUWorms] = useState(15)
-  const [consumptionEffects, setConsumptionEffects] = useState<
-    {
-      x: number
-      y: number
-      color: string
-      size: number
-      alpha: number
-      timestamp: number
-    }[]
-  >([])
+
 
   const [difficultyLevel, setDifficultyLevel] = useState(1)
   const [lastSpawnScore, setLastSpawnScore] = useState(0)
@@ -149,7 +143,9 @@ function WormGame() {
   const worldBackgroundRef = useRef<HTMLImageElement | null>(null)
 
   // Use the custom hook for camera functionality
-  const { updateCamera, renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
+  const { renderCamera } = useCamera(gameState, canvasSize, scaleFactorRef)
+
+  const { effects, addEffect } = useConsumptionEffects(gameState.isRunning)
 
   // Initialize audio
   useEffect(() => {
@@ -245,17 +241,7 @@ function WormGame() {
 
   // Add consumption visual effect
   const addConsumptionEffect = (x: number, y: number, color: string, size: number) => {
-    setConsumptionEffects((prev) => [
-      ...prev,
-      {
-        x,
-        y,
-        color,
-        size,
-        alpha: 1,
-        timestamp: Date.now(),
-      },
-    ])
+    addEffect(x, y, color, size)
   }
 
   // Initialize game
@@ -365,7 +351,7 @@ function WormGame() {
     }
 
     // Set initial game state
-    setGameState({
+    updateGameState({
       isRunning: true,
       isGameOver: false,
       winner: null,
@@ -393,7 +379,7 @@ function WormGame() {
       const canvas = canvasRef.current
       const container = containerRef.current
       const rect = container.getBoundingClientRect()
-      
+
       // Get window dimensions for better mobile handling
       const windowHeight = window.innerHeight
       const maxHeight = Math.min(windowHeight * 0.7, BASE_CANVAS_HEIGHT) // Limit to 70% of window height
@@ -416,14 +402,14 @@ function WormGame() {
       // Set canvas display size (css pixels)
       canvas.style.width = `${width}px`
       canvas.style.height = `${height}px`
-      
+
       // Set canvas internal size (actual pixels)
       canvas.width = Math.floor(width * dpr)
       canvas.height = Math.floor(height * dpr)
-      
+
       // Store the canvas size for rendering
       setCanvasSize({ width: canvas.width / dpr, height: canvas.height / dpr }) // Divide by dpr to get CSS pixels
-      
+
       // Initialize context scale
       const ctx = canvas.getContext("2d")
       if (ctx) {
@@ -432,9 +418,9 @@ function WormGame() {
       }
 
       // Update game state camera if it exists
-      setGameState(prevState => {
+      updateGameState(prevState => {
         if (!prevState.isRunning) return prevState
-        
+
         const playerWorm = prevState.worms.find(w => w.isPlayer)
         if (playerWorm) {
           return {
@@ -469,7 +455,7 @@ function WormGame() {
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [isMobile])
+  }, [isMobile, updateGameState])
 
   // Set up keyboard controls
   useEffect(() => {
@@ -553,131 +539,44 @@ function WormGame() {
     }
   },)
 
-  // Start game loop
-  useEffect(() => {
-    if (!gameState.isRunning) return
+  // Create explosion effect when a worm is eliminated
+  // This function needs to be defined BEFORE updateGame which uses it
+  const createExplosionEffect = (gameState: GameState, worm: Worm) => {
+    // Scatter segments
+    worm.segments.forEach((segment) => {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * SCATTERED_SEGMENT_SPEED
+      gameState.scatteredSegments.push({
+        x: segment.x,
+        y: segment.y,
+        radius: segment.radius,
+        color: worm.color,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed,
+      })
+    })
 
-    const gameLoop = (timestamp: number) => {
-      if (!lastUpdateTimeRef.current) {
-        lastUpdateTimeRef.current = timestamp
-      }
-
-      lastUpdateTimeRef.current = timestamp
-
-      updateGame()
-      renderGame()
-
-      animationFrameRef.current = requestAnimationFrame(gameLoop)
-    }
-
-    animationFrameRef.current = requestAnimationFrame(gameLoop)
-
-    return () => {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
-  }, [gameState.isRunning, gameState.worms, gameState.scatteredSegments])
-
-  // Update consumption effects
-  useEffect(() => {
-    if (!gameState.isRunning || consumptionEffects.length === 0) return
-
-    const updateEffects = () => {
-      setConsumptionEffects((prev) =>
-        prev
-          .map((effect) => ({
-            ...effect,
-            alpha: effect.alpha - 0.02,
-            size: effect.size * 1.03,
-          }))
-          .filter((effect) => effect.alpha > 0),
-      )
-    }
-
-    const effectInterval = setInterval(updateEffects, 50)
-    return () => clearInterval(effectInterval)
-  }, [gameState.isRunning, consumptionEffects.length])
-
-  // Add function to spawn a new CPU worm with scaled difficulty
-  const spawnNewCPUWorm = (gameState: GameState) => {
-    // Calculate a safe spawn position away from other worms
-    const findSafePosition = (): { x: number; y: number } => {
-      let attempts = 0
-      const maxAttempts = 50
-      const safeDistance = 200 * scaleFactorRef.current
-
-      while (attempts < maxAttempts) {
-        const x = Math.random() * (WORLD_WIDTH - 200) + 100
-        const y = Math.random() * (WORLD_HEIGHT - 200) + 100
-        let isSafe = true
-
-        // Check distance from all existing worms
-        for (const worm of gameState.worms) {
-          if (!worm.isAlive) continue
-          const dx = worm.head.x - x
-          const dy = worm.head.y - y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          if (distance < safeDistance) {
-            isSafe = false
-            break
-          }
-        }
-
-        if (isSafe) {
-          return { x, y }
-        }
-        attempts++
-      }
-
-      // Fallback to random position if no safe spot found
-      return {
-        x: Math.random() * (WORLD_WIDTH - 200) + 100,
-        y: Math.random() * (WORLD_HEIGHT - 200) + 100,
-      }
-    }
-
-    const safePos = findSafePosition()
-    const cpuIndex = gameState.worms.length
-
-    // Scale difficulty based on current level
-    const speedMultiplier = BASE_CPU_SPEED + DIFFICULTY_SPEED_INCREASE * (difficultyLevel - 1)
-    const sizeFactor = Math.max(0.7, Math.min(1.3, 1.0 - difficultyLevel * 0.05)) // Smaller = faster
-    const numSegments = Math.floor(MIN_CPU_SEGMENTS + (difficultyLevel * 2))
-
-    const newCPUWorm: Worm = {
-      id: `worm-cpu-dynamic-${cpuIndex}`,
-      isPlayer: false,
-      isAlive: true,
-      color: PLAYER_COLORS[cpuIndex % PLAYER_COLORS.length],
-      name: `CPU ${cpuIndex}`,
-      head: {
-        x: safePos.x,
-        y: safePos.y,
-        radius: HEAD_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
-      },
-      angle: Math.random() * Math.PI * 2,
-      segments: [],
-      score: numSegments,
-      controls: { left: "", right: "" },
-      sizeFactor: sizeFactor,
-      speedMultiplier: speedMultiplier, // Add this to your Worm type
-    }
-
-    // Add segments
-    for (let j = 0; j < numSegments; j++) {
-      const segmentAngle = newCPUWorm.angle + Math.PI
-      newCPUWorm.segments.push({
-        x: newCPUWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
-        y: newCPUWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
-        radius: SEGMENT_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+    // Add explosion particles from the head
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * SCATTERED_SEGMENT_SPEED * 1.5
+      gameState.scatteredSegments.push({
+        x: worm.head.x,
+        y: worm.head.y,
+        radius: Math.random() * 5 * scaleFactorRef.current + 2,
+        color: worm.color,
+        velocityX: Math.cos(angle) * speed,
+        velocityY: Math.sin(angle) * speed,
       })
     }
 
-    return newCPUWorm
+    // Add visual effect directly using the hook
+    addEffect(worm.head.x, worm.head.y, worm.color, worm.head.radius * 3)
   }
 
-  // Update game state
-  const updateGame = () => {
-    setGameState((prevState) => {
+  // Move update and render functions outside useEffect
+  const updateGame = useCallback(() => {
+    updateGameState((prevState) => {
       // If game is over, don't update
       if (prevState.isGameOver) return prevState
 
@@ -784,14 +683,14 @@ function WormGame() {
         const prevHeadY = worm.head.y
 
         // Move head
-        const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1 // Smaller worms move faster
+        const speedFactor = worm.isPlayer ? 1 : (worm.sizeFactor ? 1 / worm.sizeFactor : 1) // Keep player speed constant
         if (!worm.isPlayer) {
           const speedMultiplier = worm.speedMultiplier || BASE_CPU_SPEED
           worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
           worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
         } else {
-          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
-          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
+          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * scaleFactorRef.current // Remove speedFactor for player
+          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * scaleFactorRef.current // Remove speedFactor for player
         }
 
         // World boundary checking
@@ -846,9 +745,16 @@ function WormGame() {
       // Update camera to follow player
       const playerWorm = aliveWorms.find((worm) => worm.isPlayer)
       if (playerWorm) {
-        updateCamera(playerWorm)
-      }
+        // Direct camera positioning rather than going through updateCamera
+        const targetX = playerWorm.head.x - canvasSize.width / 2
+        const targetY = playerWorm.head.y - canvasSize.height / 2
 
+        // Immediate camera update for smooth following
+        newState.camera = {
+          x: targetX,
+          y: targetY
+        }
+      }
       // Move scattered segments
       const newScatteredSegments: ScatteredSegment[] = []
       newState.scatteredSegments.forEach((segment) => {
@@ -961,7 +867,7 @@ function WormGame() {
                 // Only spawn if below max limit
                 const currentCPUs = newState.worms.filter((w) => !w.isPlayer).length
                 if (currentCPUs < MAX_DYNAMIC_CPU_WORMS) {
-                  const newCPU = spawnNewCPUWorm(newState)
+                  const newCPU = spawnNewCPUWorm(newState, difficultyLevel, scaleFactorRef.current, PLAYER_COLORS)
                   newState.worms.push(newCPU)
 
                   // Show notification
@@ -1005,40 +911,60 @@ function WormGame() {
 
       return newState
     })
+  }, [
+    updateGameState,
+    canvasSize,
+    addConsumptionEffect,
+    createExplosionEffect,  // Now this reference is valid
+    difficultyLevel,
+    lastSpawnScore,
+    playConsumeSound,
+    playExplosionSound,
+    toast
+  ])
+
+  // Helper function to check if an object is in the viewport
+  const isInViewport = (x: number, y: number, radius: number): boolean => {
+    return (
+      x + radius >= gameState.camera.x &&
+      x - radius <= gameState.camera.x + canvasSize.width &&
+      y + radius >= gameState.camera.y &&
+      y - radius <= gameState.camera.y + canvasSize.height
+    )
   }
 
-  // Create explosion effect when a worm is eliminated
-  const createExplosionEffect = (gameState: GameState, worm: Worm) => {
-    // Scatter segments
-    worm.segments.forEach((segment) => {
-      const angle = Math.random() * Math.PI * 2
-      const speed = Math.random() * SCATTERED_SEGMENT_SPEED
-      gameState.scatteredSegments.push({
-        x: segment.x,
-        y: segment.y,
-        radius: segment.radius,
-        color: worm.color,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed,
-      })
-    })
-
-    // Add explosion particles from the head
-    for (let i = 0; i < 20; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const speed = Math.random() * SCATTERED_SEGMENT_SPEED * 1.5
-      gameState.scatteredSegments.push({
-        x: worm.head.x,
-        y: worm.head.y,
-        radius: Math.random() * 5 * scaleFactorRef.current + 2,
-        color: worm.color,
-        velocityX: Math.cos(angle) * speed,
-        velocityY: Math.sin(angle) * speed,
-      })
+  // Helper function to check if a worm is in the viewport
+  const isWormInViewport = (worm: Worm): boolean => {
+    // Check if head is in viewport
+    if (isInViewport(worm.head.x, worm.head.y, worm.head.radius)) {
+      return true
     }
 
-    // Add visual effect
-    addConsumptionEffect(worm.head.x, worm.head.y, worm.color, worm.head.radius * 3)
+    // Check if any segment is in viewport
+    for (const segment of worm.segments) {
+      if (isInViewport(segment.x, segment.y, segment.radius)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // Helper function to shade colors
+  const shadeColor = (color: string, percent: number): string => {
+    let R = Number.parseInt(color.substring(1, 3), 16)
+    let G = Number.parseInt(color.substring(3, 5), 16)
+    let B = Number.parseInt(color.substring(5, 7), 16)
+    R = Math.floor((R * (100 + percent)) / 100)
+    G = Math.floor((G * (100 + percent)) / 100)
+    B = Math.floor((B * (100 + percent)) / 100)
+    R = Math.min(Math.max(R, 0), 255)
+    G = Math.min(Math.max(G, 0), 255)
+    B = Math.min(Math.max(B, 0), 255)
+    const RR = R.toString(16).padStart(2, "0")
+    const GG = G.toString(16).padStart(2, "0")
+    const BB = B.toString(16).padStart(2, "0")
+    return `#${RR}${GG}${BB}`
   }
 
   // Render game
@@ -1062,10 +988,10 @@ function WormGame() {
       // Apply camera transform for background
       ctx.save()
       ctx.translate(-gameState.camera.x, -gameState.camera.y)
-      
+
       // Draw the background image
       ctx.drawImage(worldBackgroundRef.current, 0, 0)
-      
+
       // Restore transform
       ctx.restore()
     }
@@ -1345,19 +1271,19 @@ function WormGame() {
     })
 
     // Draw consumption effects
-    consumptionEffects.forEach((effect) => {
+    effects.forEach((effect) => {
       // Skip rendering if outside visible area
       if (!isInViewport(effect.x, effect.y, effect.size)) return
-
+    
       ctx.globalAlpha = effect.alpha
-
+    
       // Draw ripple effect
       ctx.strokeStyle = effect.color
       ctx.lineWidth = 3 * scaleFactorRef.current
       ctx.beginPath()
       ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2)
       ctx.stroke()
-
+    
       // Draw particles
       for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2
@@ -1365,13 +1291,13 @@ function WormGame() {
         const particleX = effect.x + Math.cos(angle) * distance
         const particleY = effect.y + Math.sin(angle) * distance
         const particleSize = effect.size * 0.15
-
+    
         ctx.fillStyle = effect.color
         ctx.beginPath()
         ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2)
         ctx.fill()
       }
-
+    
       ctx.globalAlpha = 1
     })
 
@@ -1526,67 +1452,47 @@ function WormGame() {
         canvasSize.height / 2 + 120 * scaleFactorRef.current,
       )
     }
-  }, [canvasSize, gameState, showTouchControls, touchFeedback, backgroundLoaded, consumptionEffects])
-
-  // Helper function to check if an object is in the viewport
-  const isInViewport = (x: number, y: number, radius: number): boolean => {
-    return (
-      x + radius >= gameState.camera.x &&
-      x - radius <= gameState.camera.x + canvasSize.width &&
-      y + radius >= gameState.camera.y &&
-      y - radius <= gameState.camera.y + canvasSize.height
-    )
-  }
-
-  // Helper function to check if a worm is in the viewport
-  const isWormInViewport = (worm: Worm): boolean => {
-    // Check if head is in viewport
-    if (isInViewport(worm.head.x, worm.head.y, worm.head.radius)) {
-      return true
-    }
-
-    // Check if any segment is in viewport
-    for (const segment of worm.segments) {
-      if (isInViewport(segment.x, segment.y, segment.radius)) {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  // Helper function to shade colors
-  const shadeColor = (color: string, percent: number): string => {
-    let R = Number.parseInt(color.substring(1, 3), 16)
-    let G = Number.parseInt(color.substring(3, 5), 16)
-    let B = Number.parseInt(color.substring(5, 7), 16)
-
-    R = Math.floor((R * (100 + percent)) / 100)
-    G = Math.floor((G * (100 + percent)) / 100)
-    B = Math.floor((B * (100 + percent)) / 100)
-
-    R = R < 255 ? R : 255
-    G = R < 255 ? G : 255
-    B = G < 255 ? G : 255
-
-    R = R > 0 ? R : 0
-    G = R > 0 ? G : 0
-    B = G > 0 ? G : 0
-
-    const RR = R.toString(16).padStart(2, "0")
-    const GG = G.toString(16).padStart(2, "0")
-    const BB = B.toString(16).padStart(2, "0")
-
-    return `#${RR}${GG}${BB}`
-  }
+  }, [
+    canvasSize,
+    gameState,
+    showTouchControls,
+    touchFeedback,
+    backgroundLoaded,
+    effects,
+    isInViewport,
+    isWormInViewport,
+    renderCamera
+  ])
 
   // Handle start button click
   const handleStartClick = () => {
     // Reset game state
     cancelAnimationFrame(animationFrameRef.current)
     lastUpdateTimeRef.current = 0
+    
+    // Reset directly through updateGameState first to clear the game over state
+    updateGameState({
+      isRunning: false,
+      isGameOver: false,
+      winner: null,
+      worms: [],
+      scatteredSegments: [],
+      roundWinner: null,
+      camera: { x: 0, y: 0 },
+      worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+    })
+  
+    // Then initialize new game
     initializeGame()
   }
+
+  // Update the useGameLoop dependencies array to include all necessary values
+  useGameLoop(
+    gameState.isRunning,
+    updateGame,
+    renderGame,
+    [gameState.worms, gameState.scatteredSegments, gameState.camera, canvasSize.width, canvasSize.height]
+  )
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
