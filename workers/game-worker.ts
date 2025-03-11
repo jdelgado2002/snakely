@@ -17,7 +17,7 @@ self.onmessage = (e: MessageEvent<WorkerData>) => {
     const prevHeadY = worm.head.y
 
     // Calculate movement
-    const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1
+    const speedFactor = worm.isPlayer ? 1 : (worm.sizeFactor ? 1 / worm.sizeFactor : 1)
     const baseSpeed = WORM.MOVEMENT_SPEED * scaleFactor * speedFactor
     const speed = worm.isPlayer ? baseSpeed : baseSpeed * (worm.speedMultiplier || 1)
 

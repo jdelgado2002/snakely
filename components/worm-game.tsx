@@ -683,15 +683,14 @@ function WormGame() {
         const prevHeadY = worm.head.y
 
         // Move head
-        //const speedFactor = worm.sizeFactor ? 1 / worm.sizeFactor : 1 // Smaller worms move faster
-        const speedFactor = 1
+        const speedFactor = worm.isPlayer ? 1 : (worm.sizeFactor ? 1 / worm.sizeFactor : 1) // Keep player speed constant
         if (!worm.isPlayer) {
           const speedMultiplier = worm.speedMultiplier || BASE_CPU_SPEED
           worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
           worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedMultiplier * speedFactor * scaleFactorRef.current
         } else {
-          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
-          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * speedFactor * scaleFactorRef.current
+          worm.head.x += Math.cos(worm.angle) * MOVEMENT_SPEED * scaleFactorRef.current // Remove speedFactor for player
+          worm.head.y += Math.sin(worm.angle) * MOVEMENT_SPEED * scaleFactorRef.current // Remove speedFactor for player
         }
 
         // World boundary checking
