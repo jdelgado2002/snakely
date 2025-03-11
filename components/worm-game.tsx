@@ -1478,6 +1478,20 @@ function WormGame() {
     // Reset game state
     cancelAnimationFrame(animationFrameRef.current)
     lastUpdateTimeRef.current = 0
+    
+    // Reset directly through updateGameState first to clear the game over state
+    updateGameState({
+      isRunning: false,
+      isGameOver: false,
+      winner: null,
+      worms: [],
+      scatteredSegments: [],
+      roundWinner: null,
+      camera: { x: 0, y: 0 },
+      worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+    })
+  
+    // Then initialize new game
     initializeGame()
   }
 
