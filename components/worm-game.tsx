@@ -955,23 +955,15 @@ function WormGame() {
     let R = Number.parseInt(color.substring(1, 3), 16)
     let G = Number.parseInt(color.substring(3, 5), 16)
     let B = Number.parseInt(color.substring(5, 7), 16)
-
     R = Math.floor((R * (100 + percent)) / 100)
     G = Math.floor((G * (100 + percent)) / 100)
     B = Math.floor((B * (100 + percent)) / 100)
-
-    R = R < 255 ? R : 255
-    G = R < 255 ? G : 255
-    B = G < 255 ? G : 255
-
-    R = R > 0 ? R : 0
-    G = R > 0 ? G : 0
-    B = G > 0 ? G : 0
-
+    R = Math.min(Math.max(R, 0), 255)
+    G = Math.min(Math.max(G, 0), 255)
+    B = Math.min(Math.max(B, 0), 255)
     const RR = R.toString(16).padStart(2, "0")
     const GG = G.toString(16).padStart(2, "0")
     const BB = B.toString(16).padStart(2, "0")
-
     return `#${RR}${GG}${BB}`
   }
 
