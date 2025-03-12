@@ -438,17 +438,19 @@ function WormGame() {
       })
 
       try {
-        // Generate new background
-        const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT)
-        worldBackgroundRef.current = worldBgImage
-        setBackgroundLoaded(true)
+        console.log("Generating background...");
+        const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT);
+        console.log("Background generated successfully");
+        worldBackgroundRef.current = worldBgImage;
+        setBackgroundLoaded(true);
       } catch (err) {
-        console.error("Failed to generate background:", err)
-        // Set a fallback background color
+        console.error("Failed to generate background:", err);
+        // Set fallback background color and still mark as loaded
         if (ctx) {
-          ctx.fillStyle = "#2d5a27" // Fallback dark green
-          ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
+          ctx.fillStyle = "#2d5a27"; // Fallback dark green
+          ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
         }
+        setBackgroundLoaded(true); // Mark as loaded even with the fallback
       }
 
       // Set touch controls visibility based on device
@@ -835,7 +837,6 @@ function WormGame() {
       // Check for absorption of scattered segments
       aliveWorms.forEach((worm) => {
         const absorbedSegments: number[] = []
-
         newState.scatteredSegments.forEach((segment, index) => {
           const dx = worm.head.x - segment.x
           const dy = worm.head.y - segment.y
@@ -1277,16 +1278,16 @@ function WormGame() {
     effects.forEach((effect) => {
       // Skip rendering if outside visible area
       if (!isInViewport(effect.x, effect.y, effect.size)) return
-    
+
       ctx.globalAlpha = effect.alpha
-    
+
       // Draw ripple effect
       ctx.strokeStyle = effect.color
       ctx.lineWidth = 3 * scaleFactorRef.current
       ctx.beginPath()
       ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2)
       ctx.stroke()
-    
+
       // Draw particles
       for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2
@@ -1294,13 +1295,13 @@ function WormGame() {
         const particleX = effect.x + Math.cos(angle) * distance
         const particleY = effect.y + Math.sin(angle) * distance
         const particleSize = effect.size * 0.15
-    
+
         ctx.fillStyle = effect.color
         ctx.beginPath()
         ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2)
         ctx.fill()
       }
-    
+
       ctx.globalAlpha = 1
     })
 
@@ -1472,7 +1473,7 @@ function WormGame() {
     // Reset game state
     cancelAnimationFrame(animationFrameRef.current)
     lastUpdateTimeRef.current = 0
-    
+
     // Reset directly through updateGameState first to clear the game over state
     updateGameState({
       isRunning: false,
@@ -1484,7 +1485,7 @@ function WormGame() {
       camera: { x: 0, y: 0 },
       worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
     })
-  
+
     // Then initialize new game
     initializeGame()
   }
