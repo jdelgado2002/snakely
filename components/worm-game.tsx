@@ -12,6 +12,8 @@ import { useGameLoop } from "@/hooks/use-game-loop"
 import { useGameState } from "@/hooks/use-game-state"
 import { useConsumptionEffects } from '@/hooks/use-consumption-effects'
 import { spawnNewCPUWorm } from '@/lib/game-utils'
+import { GAME } from '@/lib/constants' // Updated import to include GAME
+import GameIntro from "@/components/game-intro"
 
 // Game constants
 const BASE_CANVAS_WIDTH = 800
@@ -107,6 +109,7 @@ const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
 const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
 
 function WormGame() {
+  const [showIntro, setShowIntro] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: BASE_CANVAS_WIDTH, height: BASE_CANVAS_HEIGHT })
@@ -1507,7 +1510,7 @@ function WormGame() {
         {!gameState.isRunning && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
             <div className="text-center p-4">
-              <h2 className="text-3xl font-bold text-white mb-4">Worm Battle</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">{GAME.TITLE}</h2>
               <p className="text-white mb-6">
                 {isMobile
                   ? "Touch the left or right side of the screen to control your worm"

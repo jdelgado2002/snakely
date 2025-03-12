@@ -14,6 +14,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' }
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180' }
+    ],
+  },
+  manifest: '/site.webmanifest',
   title: "Snakely",
   description: "Fun snake game by CamiLuke Flavors and the toyiyo team",
 };
