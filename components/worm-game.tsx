@@ -1497,6 +1497,10 @@ function WormGame() {
     [gameState.worms, gameState.scatteredSegments, gameState.camera, canvasSize.width, canvasSize.height]
   )
 
+  if (showIntro) {
+    return <GameIntro onStart={() => setShowIntro(false)} />
+  }
+
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
       <div ref={containerRef} className="w-full relative overflow-hidden">
