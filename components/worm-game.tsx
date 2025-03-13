@@ -12,6 +12,8 @@ import { useGameLoop } from "@/hooks/use-game-loop"
 import { useGameState } from "@/hooks/use-game-state"
 import { useConsumptionEffects } from '@/hooks/use-consumption-effects'
 import { spawnNewCPUWorm } from '@/lib/game-utils'
+import { GAME } from '@/lib/constants' // Updated import to include GAME
+import GameIntro from "@/components/game-intro"
 
 // Game constants
 const BASE_CANVAS_WIDTH = 800
@@ -107,6 +109,7 @@ const MAX_DYNAMIC_CPU_WORMS = 20 // Maximum number of additional CPU worms
 const BASE_CPU_SPEED = 1.0 // Base movement speed multiplier for CPU worms
 
 function WormGame() {
+  const [showIntro, setShowIntro] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: BASE_CANVAS_WIDTH, height: BASE_CANVAS_HEIGHT })
@@ -246,129 +249,154 @@ function WormGame() {
 
   // Initialize game
   const initializeGame = () => {
-    setDifficultyLevel(1)
-    setLastSpawnScore(0)
+    const initializeGameState = async () => {
+      setDifficultyLevel(1)
+      setLastSpawnScore(0)
 
-    // Start background music
-    if (bgMusicRef.current && !isMuted) {
-      try {
-        bgMusicRef.current.currentTime = 0
-        const playPromise = bgMusicRef.current.play()
-
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn("Error playing background music:", err)
-            // Game can continue without music
-          })
+      // Generate background if not already loaded
+      if (!backgroundLoaded && canvasRef.current) {
+        try {
+          console.log("Generating background during game initialization...");
+          const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT);
+          console.log("Background generated successfully during initialization");
+          worldBackgroundRef.current = worldBgImage;
+          setBackgroundLoaded(true);
+        } catch (err) {
+          console.error("Failed to generate background during initialization:", err);
+          // Set fallback background and mark as loaded
+          if (canvasRef.current.getContext("2d")) {
+            const ctx = canvasRef.current.getContext("2d");
+            ctx!.fillStyle = "#2d5a27"; // Fallback dark green
+            ctx!.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+          }
+          setBackgroundLoaded(true);
         }
-      } catch (err) {
-        console.warn("Error playing background music:", err)
-        // Game can continue without music
       }
-    }
 
-    // Create player worms
-    const worms: Worm[] = []
+      // Start background music
+      if (bgMusicRef.current && !isMuted) {
+        try {
+          bgMusicRef.current.currentTime = 0
+          const playPromise = bgMusicRef.current.play()
 
-    // Player worm starts in the center of the world
-    const playerWorm: Worm = {
-      id: `worm-player`,
-      isPlayer: true,
-      isAlive: true,
-      color: PLAYER_COLORS[0],
-      name: PLAYER_NAMES[0],
-      head: {
-        x: WORLD_WIDTH / 2,
-        y: WORLD_HEIGHT / 2,
-        radius: HEAD_RADIUS_BASE * scaleFactorRef.current,
-      },
-      angle: Math.random() * Math.PI * 2,
-      segments: [],
-      score: INITIAL_SEGMENTS_PLAYER,
-      controls: { left: "ArrowLeft", right: "ArrowRight" },
-      sizeFactor: 1.0,
-    }
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn("Error playing background music:", err)
+              // Game can continue without music
+            })
+          }
+        } catch (err) {
+          console.warn("Error playing background music:", err)
+          // Game can continue without music
+        }
+      }
 
-    // Add segments to player worm
-    for (let j = 0; j < INITIAL_SEGMENTS_PLAYER; j++) {
-      const segmentAngle = playerWorm.angle + Math.PI // Opposite direction of head
-      playerWorm.segments.push({
-        x: playerWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * scaleFactorRef.current,
-        y: playerWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * scaleFactorRef.current,
-        radius: SEGMENT_RADIUS_BASE * scaleFactorRef.current,
-      })
-    }
+      // Create player worms
+      const worms: Worm[] = []
 
-    worms.push(playerWorm)
-
-    // Initialize camera to center on player in CSS pixels
-    const camera: Camera = {
-      x: (WORLD_WIDTH / 2) - (canvasSize.width / 2),
-      y: (WORLD_HEIGHT / 2) - (canvasSize.height / 2)
-    }
-
-    // Create CPU worms
-    for (let i = 0; i < numCPUWorms; i++) {
-      // Random position in the world
-      const x = Math.random() * (WORLD_WIDTH - 200) + 100
-      const y = Math.random() * (WORLD_HEIGHT - 200) + 100
-
-      // Random size factor for this worm
-      const sizeFactor = MIN_SEGMENT_SIZE_FACTOR + Math.random() * (MAX_SEGMENT_SIZE_FACTOR - MIN_SEGMENT_SIZE_FACTOR)
-
-      // Random number of segments
-      const numSegments = Math.floor(MIN_CPU_SEGMENTS + Math.random() * (MAX_CPU_SEGMENTS - MIN_CPU_SEGMENTS))
-
-      const cpuWorm: Worm = {
-        id: `worm-cpu-${i}`,
-        isPlayer: false,
+      // Player worm starts in the center of the world
+      const playerWorm: Worm = {
+        id: `worm-player`,
+        isPlayer: true,
         isAlive: true,
-        color: PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length],
-        name: CPU_NAMES[i],
+        color: PLAYER_COLORS[0],
+        name: PLAYER_NAMES[0],
         head: {
-          x: x,
-          y: y,
-          radius: HEAD_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+          x: WORLD_WIDTH / 2,
+          y: WORLD_HEIGHT / 2,
+          radius: HEAD_RADIUS_BASE * scaleFactorRef.current,
         },
         angle: Math.random() * Math.PI * 2,
         segments: [],
-        score: numSegments,
-        controls: { left: "", right: "" },
-        sizeFactor: sizeFactor,
+        score: INITIAL_SEGMENTS_PLAYER,
+        controls: { left: "ArrowLeft", right: "ArrowRight" },
+        sizeFactor: 1.0,
       }
 
-      // Add segments to CPU worm
-      for (let j = 0; j < numSegments; j++) {
-        const segmentAngle = cpuWorm.angle + Math.PI // Opposite direction of head
-        cpuWorm.segments.push({
-          x: cpuWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
-          y: cpuWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
-          radius: SEGMENT_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+      // Add segments to player worm
+      for (let j = 0; j < INITIAL_SEGMENTS_PLAYER; j++) {
+        const segmentAngle = playerWorm.angle + Math.PI // Opposite direction of head
+        playerWorm.segments.push({
+          x: playerWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * scaleFactorRef.current,
+          y: playerWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * scaleFactorRef.current,
+          radius: SEGMENT_RADIUS_BASE * scaleFactorRef.current,
         })
       }
 
-      worms.push(cpuWorm)
+      worms.push(playerWorm)
+
+      // Initialize camera to center on player in CSS pixels
+      const camera: Camera = {
+        x: (WORLD_WIDTH / 2) - (canvasSize.width / 2),
+        y: (WORLD_HEIGHT / 2) - (canvasSize.height / 2)
+      }
+
+      // Create CPU worms
+      for (let i = 0; i < numCPUWorms; i++) {
+        // Random position in the world
+        const x = Math.random() * (WORLD_WIDTH - 200) + 100
+        const y = Math.random() * (WORLD_HEIGHT - 200) + 100
+
+        // Random size factor for this worm
+        const sizeFactor = MIN_SEGMENT_SIZE_FACTOR + Math.random() * (MAX_SEGMENT_SIZE_FACTOR - MIN_SEGMENT_SIZE_FACTOR)
+
+        // Random number of segments
+        const numSegments = Math.floor(MIN_CPU_SEGMENTS + Math.random() * (MAX_CPU_SEGMENTS - MIN_CPU_SEGMENTS))
+
+        const cpuWorm: Worm = {
+          id: `worm-cpu-${i}`,
+          isPlayer: false,
+          isAlive: true,
+          color: PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length],
+          name: CPU_NAMES[i],
+          head: {
+            x: x,
+            y: y,
+            radius: HEAD_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+          },
+          angle: Math.random() * Math.PI * 2,
+          segments: [],
+          score: numSegments,
+          controls: { left: "", right: "" },
+          sizeFactor: sizeFactor,
+        }
+
+        // Add segments to CPU worm
+        for (let j = 0; j < numSegments; j++) {
+          const segmentAngle = cpuWorm.angle + Math.PI // Opposite direction of head
+          cpuWorm.segments.push({
+            x: cpuWorm.head.x - Math.cos(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
+            y: cpuWorm.head.y - Math.sin(segmentAngle) * (j + 1) * SEGMENT_SPACING * sizeFactor * scaleFactorRef.current,
+            radius: SEGMENT_RADIUS_BASE * sizeFactor * scaleFactorRef.current,
+          })
+        }
+
+        worms.push(cpuWorm)
+      }
+
+      // Set initial game state
+      updateGameState({
+        isRunning: true,
+        isGameOver: false,
+        winner: null,
+        worms,
+        scatteredSegments: [],
+        roundWinner: null,
+        camera,
+        worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+      })
+
+      // Show toast notification
+      toast({
+        title: "Game Started!",
+        description: isMobile
+          ? "Touch left/right sides of the screen to control your worm"
+          : "Use arrow keys to control your worm",
+      })
     }
 
-    // Set initial game state
-    updateGameState({
-      isRunning: true,
-      isGameOver: false,
-      winner: null,
-      worms,
-      scatteredSegments: [],
-      roundWinner: null,
-      camera,
-      worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
-    })
-
-    // Show toast notification
-    toast({
-      title: "Game Started!",
-      description: isMobile
-        ? "Touch left/right sides of the screen to control your worm"
-        : "Use arrow keys to control your worm",
-    })
+    // Call the async initialization function
+    initializeGameState()
   }
 
   // Handle window resize and background generation
@@ -415,6 +443,23 @@ function WormGame() {
       if (ctx) {
         ctx.scale(dpr, dpr)
         scaleFactorRef.current = sizeRatio // Update scale factor based on size ratio
+
+        // Generate background if not already loaded
+        if (!backgroundLoaded) {
+          try {
+            console.log("Generating background...");
+            const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT);
+            console.log("Background generated successfully");
+            worldBackgroundRef.current = worldBgImage;
+            setBackgroundLoaded(true);
+          } catch (err) {
+            console.error("Failed to generate background:", err);
+            // Set fallback background color and still mark as loaded
+            ctx.fillStyle = "#2d5a27"; // Fallback dark green
+            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+            setBackgroundLoaded(true); // Mark as loaded even with the fallback
+          }
+        }
       }
 
       // Update game state camera if it exists
@@ -434,20 +479,6 @@ function WormGame() {
         return prevState
       })
 
-      try {
-        // Generate new background
-        const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT)
-        worldBackgroundRef.current = worldBgImage
-        setBackgroundLoaded(true)
-      } catch (err) {
-        console.error("Failed to generate background:", err)
-        // Set a fallback background color
-        if (ctx) {
-          ctx.fillStyle = "#2d5a27" // Fallback dark green
-          ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
-        }
-      }
-
       // Set touch controls visibility based on device
       setShowTouchControls(isMobile)
     }
@@ -455,7 +486,33 @@ function WormGame() {
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [isMobile, updateGameState])
+  }, [isMobile, updateGameState, backgroundLoaded])
+
+  // Add useEffect to generate background on initial mount
+  useEffect(() => {
+    const generateInitialBackground = async () => {
+      if (!canvasRef.current) return;
+
+      const ctx = canvasRef.current.getContext("2d");
+      try {
+        console.log("Generating initial background...");
+        const worldBgImage = await generateGrassBackground(WORLD_WIDTH, WORLD_HEIGHT);
+        console.log("Initial background generated successfully");
+        worldBackgroundRef.current = worldBgImage;
+        setBackgroundLoaded(true);
+      } catch (err) {
+        console.error("Failed to generate initial background:", err);
+        // Set fallback background color and still mark as loaded
+        if (ctx) {
+          ctx.fillStyle = "#2d5a27"; // Fallback dark green
+          ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        }
+        setBackgroundLoaded(true); // Mark as loaded even with the fallback
+      }
+    };
+
+    generateInitialBackground();
+  }, []);
 
   // Set up keyboard controls
   useEffect(() => {
@@ -832,7 +889,6 @@ function WormGame() {
       // Check for absorption of scattered segments
       aliveWorms.forEach((worm) => {
         const absorbedSegments: number[] = []
-
         newState.scatteredSegments.forEach((segment, index) => {
           const dx = worm.head.x - segment.x
           const dy = worm.head.y - segment.y
@@ -1274,16 +1330,16 @@ function WormGame() {
     effects.forEach((effect) => {
       // Skip rendering if outside visible area
       if (!isInViewport(effect.x, effect.y, effect.size)) return
-    
+
       ctx.globalAlpha = effect.alpha
-    
+
       // Draw ripple effect
       ctx.strokeStyle = effect.color
       ctx.lineWidth = 3 * scaleFactorRef.current
       ctx.beginPath()
       ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2)
       ctx.stroke()
-    
+
       // Draw particles
       for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2
@@ -1291,13 +1347,13 @@ function WormGame() {
         const particleX = effect.x + Math.cos(angle) * distance
         const particleY = effect.y + Math.sin(angle) * distance
         const particleSize = effect.size * 0.15
-    
+
         ctx.fillStyle = effect.color
         ctx.beginPath()
         ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2)
         ctx.fill()
       }
-    
+
       ctx.globalAlpha = 1
     })
 
@@ -1469,7 +1525,7 @@ function WormGame() {
     // Reset game state
     cancelAnimationFrame(animationFrameRef.current)
     lastUpdateTimeRef.current = 0
-    
+
     // Reset directly through updateGameState first to clear the game over state
     updateGameState({
       isRunning: false,
@@ -1481,7 +1537,7 @@ function WormGame() {
       camera: { x: 0, y: 0 },
       worldSize: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
     })
-  
+
     // Then initialize new game
     initializeGame()
   }
@@ -1493,6 +1549,10 @@ function WormGame() {
     renderGame,
     [gameState.worms, gameState.scatteredSegments, gameState.camera, canvasSize.width, canvasSize.height]
   )
+
+  if (showIntro) {
+    return <GameIntro onStart={() => setShowIntro(false)} />
+  }
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
@@ -1507,7 +1567,7 @@ function WormGame() {
         {!gameState.isRunning && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
             <div className="text-center p-4">
-              <h2 className="text-3xl font-bold text-white mb-4">Worm Battle</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">{GAME.TITLE}</h2>
               <p className="text-white mb-6">
                 {isMobile
                   ? "Touch the left or right side of the screen to control your worm"

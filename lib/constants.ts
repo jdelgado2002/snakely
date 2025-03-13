@@ -30,6 +30,7 @@ export const GAME = {
   MAX_DYNAMIC_CPU_WORMS: 20,
   BASE_CPU_SPEED: 1.0,
   DIFFICULTY_SPEED_INCREASE: 1.1,
+  TITLE: "Worm Battle", // Added game title constant
 } as const
 
 export const COLORS = {
