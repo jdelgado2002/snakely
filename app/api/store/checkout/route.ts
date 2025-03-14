@@ -3,72 +3,48 @@ import Stripe from "stripe"
 import { skins } from "@/lib/store"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-02-24.acacia",
 })
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    // Validate request
-    if (!req.headers.get("Content-Type")?.includes("application/json")) {
-      return NextResponse.json(
-        { error: "Invalid content type" },
-        { status: 415 }
-      )
-    }
+    const body = await request.json()
+    const skin = skins.find(s => s.id === body.skinId)
 
-    const { skinId } = await req.json()
-    
-    if (!skinId) {
+    if (!skin) {
       return NextResponse.json(
-        { error: "Skin ID is required" },
+        { error: "Invalid skin selection" },
         { status: 400 }
       )
     }
 
-    const skin = skins.find(s => s.id === skinId)
-    
-    if (!skin) {
-      return NextResponse.json(
-        { error: "Skin not found" },
-        { status: 404 }
-      )
-    }
-
-    // Create Stripe checkout session
+    // Create Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      metadata: {
-        skinId: skin.id,
-      },
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          product_data: { 
-            name: skin.name,
-            description: skin.description,
-            images: [skin.image],
-            metadata: {
-              skinId: skin.id,
-            }
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: skin.name,
+              description: skin.description,
+            },
+            unit_amount: Math.round(skin.price * 100), // Convert to cents
           },
-          unit_amount: Math.round(skin.price * 100),
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       mode: "payment",
+      customer_email: body.email, // Add this line to collect email
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/store?skin=${skin.id}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/store`,
     })
-
-    if (!session.url) {
-      throw new Error("Failed to create checkout session")
-    }
 
     return NextResponse.json({ url: session.url })
   } catch (err) {
     console.error("Checkout error:", err)
     return NextResponse.json(
-      { error: "Checkout creation failed" },
+      { error: "Failed to create checkout session" },
       { status: 500 }
     )
   }

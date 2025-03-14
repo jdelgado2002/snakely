@@ -1,25 +1,25 @@
-import type { StoreState, Skin } from "@/types/store"
+import type { Skin, StoreState } from "@/types/store"
 
-const STORE_KEY = "snakely-store"
+const STORE_KEY = "snakely_store_state"
 
 export const defaultStoreState: StoreState = {
   purchasedSkins: []
 }
 
 export function getStoreState(): StoreState {
-  if (typeof window === 'undefined') return defaultStoreState
+  if (typeof window === "undefined") return { purchasedSkins: [] }
   
   const stored = localStorage.getItem(STORE_KEY)
-  if (!stored) return defaultStoreState
-
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return defaultStoreState
+  if (!stored) {
+    const initial = { purchasedSkins: [] }
+    localStorage.setItem(STORE_KEY, JSON.stringify(initial))
+    return initial
   }
+
+  return JSON.parse(stored)
 }
 
-export function saveSkinPurchase(skinId: string) {
+export function saveSkinPurchase(skinId: string): void {
   const state = getStoreState()
   if (!state.purchasedSkins.includes(skinId)) {
     state.purchasedSkins.push(skinId)
@@ -30,27 +30,24 @@ export function saveSkinPurchase(skinId: string) {
 // Available skins to purchase
 export const skins: Skin[] = [
   {
-    id: "rainbow-snake",
-    name: "Rainbow Snake", 
+    id: "bronze",
+    name: "Bronze Snake",
+    description: "A sleek bronze-colored snake skin",
+    price: 1.99,
+    color: "#CD7F32"
+  },
+  {
+    id: "silver",
+    name: "Silver Snake",
+    description: "A shiny silver snake skin",
     price: 2.99,
-    image: "/skins/rainbow-snake.png",
-    description: "A colorful, mesmerizing snake skin!",
-    color: "#FF5733"
+    color: "#C0C0C0"
   },
   {
-    id: "golden-snake",
-    name: "Golden Snake",
-    price: 4.99,
-    image: "/skins/golden-snake.png",
-    description: "The most luxurious snake skin!",
+    id: "gold",
+    name: "Gold Snake",
+    description: "A luxurious gold snake skin",
+    price: 5.99,
     color: "#FFD700"
-  },
-  {
-    id: "neon-snake",
-    name: "Neon Snake",
-    price: 3.99,
-    image: "/skins/neon-snake.png",
-    description: "Glow in style with this neon skin!",
-    color: "#39FF14"
   }
 ]

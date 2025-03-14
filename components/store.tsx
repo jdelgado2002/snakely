@@ -7,12 +7,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Loader2, RefreshCw, ShoppingCart } from "lucide-react"
 import { skins, getStoreState, saveSkinPurchase } from "@/lib/store"
 import type { Skin } from "@/types/store"
+import { Input } from "@/components/ui/input"
 
 export default function Store() {
   const { toast } = useToast()
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [purchasedSkins, setPurchasedSkins] = useState<string[]>([])
   const [previewSkin, setPreviewSkin] = useState<string | null>(null)
+  const [email, setEmail] = useState("")
 
   useEffect(() => {
     const { purchasedSkins } = getStoreState()
@@ -31,12 +33,24 @@ export default function Store() {
   }, [toast])
 
   async function purchaseSkin(skin: Skin) {
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email to continue with the purchase",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setPurchasing(skin.id)
       const res = await fetch("/api/store/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skinId: skin.id }),
+        body: JSON.stringify({ 
+          skinId: skin.id,
+          email: email 
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -78,14 +92,24 @@ export default function Store() {
           <span role="img" aria-label="Paintbrush">🎨</span> 
           Skins Store
         </h1>
-        <Button 
-          onClick={restorePurchases} 
-          variant="outline"
-          aria-label="Restore previous purchases"
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Restore Purchases
-        </Button>
+        <div className="flex items-center gap-4">
+          <Input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-64"
+            required
+          />
+          <Button 
+            onClick={restorePurchases} 
+            variant="outline"
+            aria-label="Restore previous purchases"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Restore Purchases
+          </Button>
+        </div>
       </div>
 
       <div 

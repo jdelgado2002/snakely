@@ -1,12 +1,11 @@
 export interface Skin {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  description?: string;
-  color: string;
+  id: string
+  name: string
+  description: string
+  price: number
+  color: string
 }
 
 export interface StoreState {
-  purchasedSkins: string[];
+  purchasedSkins: string[]
 }
